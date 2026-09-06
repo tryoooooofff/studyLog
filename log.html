@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StudyFlow — Study Planner</title>
+    <link id="favicon" rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%234f46e5'/%3E%3Cg fill='none' stroke='%23fff' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 47a5 5 0 0 1 5-5h27'/%3E%3Cpath d='M21 12h27v40H21a5 5 0 0 1-5-5V17a5 5 0 0 1 5-5z'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%234f46e5'/%3E%3Cg fill='none' stroke='%23fff' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 47a5 5 0 0 1 5-5h27'/%3E%3Cpath d='M21 12h27v40H21a5 5 0 0 1-5-5V17a5 5 0 0 1 5-5z'/%3E%3C/g%3E%3C/svg%3E">
+<meta name="theme-color" content="#4f46e5">
+<style>
+:root{
+  --bg:#f5f6fa; --surface:#ffffff; --surface-2:#f2f4f8; --text:#0f172a; --text-2:#64748b; --text-3:#94a3b8;
+  --border:#e6e8ef; --border-2:#d5d9e3;
+  --primary:#4f46e5; --primary-h:#4338ca; --primary-soft:#eef0ff; --primary-text:#4338ca;
+  --green:#16a34a; --red:#dc2626; --yellow:#d97706; --blue:#2563eb; --gray:#a0aabb;
+  --shadow-sm:0 1px 2px rgba(15,23,42,.05); --shadow:0 6px 24px -8px rgba(15,23,42,.12); --shadow-lg:0 24px 60px -16px rgba(15,23,42,.28);
+  --r:12px; --r-lg:16px; --sidebar:240px;
+}
+[data-theme="dark"]{
+  --bg:#0b0e14; --surface:#12161f; --surface-2:#191e2a; --text:#e6e9f0; --text-2:#98a2b3; --text-3:#667085;
+  --border:#232936; --border-2:#303747; --primary:#6366f1; --primary-h:#818cf8; --primary-soft:#1c1f3a; --primary-text:#a5b4fc;
+  --green:#22c55e; --red:#ef4444; --yellow:#f59e0b; --blue:#3b82f6; --gray:#5b6577;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow:0 6px 24px -8px rgba(0,0,0,.5); --shadow-lg:0 24px 60px -16px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14.5px;line-height:1.5;-webkit-font-smoothing:antialiased;transition:background .25s,color .25s}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0}
+h1,h2,h3,h4{margin:0;font-weight:650;letter-spacing:-.015em;line-height:1.25}
+h1{font-size:1.55rem} h2{font-size:1.15rem} h3{font-size:.95rem} h4{font-size:.85rem}
+p{margin:0}
+.sub{color:var(--text-2);font-size:.88rem;margin-top:4px}
+.muted{color:var(--text-2)} .small{font-size:.8rem} .xs{font-size:.72rem}
+.ic{flex:none;vertical-align:-2px}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.between{justify-content:space-between}
+.spacer{flex:1}
+.mt{margin-top:16px} .mt-s{margin-top:8px}
+
+/* ---------- shell ---------- */
+.app{display:flex;min-height:100vh}
+.sidebar{width:var(--sidebar);flex:none;position:sticky;top:0;height:100vh;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 14px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.05rem;padding:4px 10px 18px;letter-spacing:-.01em}
+.brand .logo{width:30px;height:30px;border-radius:9px;background:var(--primary);color:#fff;display:grid;place-items:center}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav-item{display:flex;align-items:center;gap:11px;width:100%;padding:9px 12px;border-radius:10px;color:var(--text-2);font-weight:500;transition:.15s;text-align:left}
+.nav-item:hover{background:var(--surface-2);color:var(--text)}
+.nav-item.active{background:var(--primary-soft);color:var(--primary-text);font-weight:600}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:6px;padding-top:14px;border-top:1px solid var(--border)}
+.account-card{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;width:100%;text-align:left;transition:.15s}
+.account-card:hover{background:var(--surface-2)}
+.account-card b{display:block;font-size:.85rem;font-weight:600}
+.account-card small{display:block;color:var(--text-2);font-size:.72rem}
+.avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:700;font-size:.78rem;display:grid;place-items:center;flex:none;letter-spacing:.02em}
+.avatar.lg{width:46px;height:46px;font-size:.95rem}
+.content{flex:1;min-width:0;display:flex;flex-direction:column}
+.mobile-bar{display:none;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+main{max-width:1120px;width:100%;margin:0 auto;padding:32px 32px 120px}
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);z-index:30;padding:6px 8px calc(6px + env(safe-area-inset-bottom))}
+.bottom-nav .nav-item{flex-direction:column;gap:3px;font-size:.68rem;padding:8px 4px;justify-content:center;flex:1}
+@media(max-width:900px){.sidebar{display:none}.mobile-bar{display:flex}.bottom-nav{display:flex}main{padding:20px 16px 110px}}
+.view{display:none;animation:fade .25s ease}
+.view.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+.page-head .actions{display:flex;gap:8px;flex-wrap:wrap}
+.eyebrow{font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);margin-bottom:4px}
+
+/* ---------- cards / stats ---------- */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:22px;box-shadow:var(--shadow-sm)}
+.card + .card{margin-top:16px}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:16px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;display:flex;gap:14px;align-items:flex-start;box-shadow:var(--shadow-sm)}
+.stat-ic{width:38px;height:38px;border-radius:10px;background:var(--primary-soft);color:var(--primary-text);display:grid;place-items:center;flex:none}
+.stat-v{font-size:1.35rem;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.2}
+.stat-v small{font-size:.85rem;color:var(--text-3);font-weight:500}
+.stat-l{font-size:.78rem;color:var(--text-2);margin-top:2px;font-weight:500}
+.progress{height:6px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+.progress i{display:block;height:100%;background:var(--primary);border-radius:99px;transition:width .5s}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:600;padding:3px 9px;border-radius:99px;background:var(--surface-2);color:var(--text-2)}
+.tag{display:inline-block;font-size:.66rem;font-weight:600;padding:2px 7px;border-radius:6px;background:var(--primary-soft);color:var(--primary-text);margin-left:8px;vertical-align:middle;letter-spacing:.02em}
+@media(max-width:820px){.grid2{grid-template-columns:1fr}}
+
+/* ---------- buttons / inputs ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 14px;border-radius:10px;font-weight:600;font-size:.86rem;border:1px solid var(--border-2);background:var(--surface);color:var(--text);transition:.15s;white-space:nowrap}
+.btn:hover{background:var(--surface-2);border-color:var(--text-3)}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-h);border-color:var(--primary-h)}
+.btn-ghost{border-color:transparent;background:transparent;color:var(--text-2)}
+.btn-ghost:hover{background:var(--surface-2);color:var(--text)}
+.btn.danger{color:var(--red)} .btn.danger:hover{background:color-mix(in srgb,var(--red) 10%,transparent);border-color:var(--red)}
+.btn.sm{padding:6px 10px;font-size:.78rem;border-radius:8px}
+.btn.full{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn-icon{width:34px;height:34px;border-radius:9px;display:inline-grid;place-items:center;color:var(--text-2);border:1px solid transparent;transition:.15s}
+.btn-icon:hover{background:var(--surface-2);color:var(--text)}
+.btn-icon.bordered{border-color:var(--border-2);background:var(--surface)}
+.btn-icon.sm{width:28px;height:28px;border-radius:7px}
+.input{width:100%;border:1px solid var(--border-2);background:var(--surface);border-radius:10px;padding:9px 12px;outline:none;transition:.15s;font-size:.9rem}
+.input::placeholder{color:var(--text-3)}
+.input:focus{border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 18%,transparent)}
+textarea.input{resize:vertical;min-height:84px;line-height:1.45}
+label.f{display:block;font-size:.76rem;font-weight:600;color:var(--text-2);margin-bottom:6px}
+.field{flex:1;min-width:150px}
+.seg{display:inline-flex;background:var(--surface-2);padding:3px;border-radius:10px;gap:2px}
+.seg button{padding:7px 14px;border-radius:8px;font-weight:600;font-size:.82rem;color:var(--text-2);transition:.15s;display:inline-flex;align-items:center;gap:7px}
+.seg button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+.empty{padding:44px 20px;text-align:center;color:var(--text-2)}
+.empty .eic{width:48px;height:48px;border-radius:14px;background:var(--surface-2);color:var(--text-3);display:grid;place-items:center;margin:0 auto 12px}
+.empty h3{color:var(--text);margin-bottom:4px}
+.empty .btn{margin-top:14px}
+code{background:var(--surface-2);padding:1px 6px;border-radius:5px;font-size:.8em}
+details summary{cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:6px;color:var(--text-2);font-size:.82rem;font-weight:600}
+details summary::-webkit-details-marker{display:none}
+details[open] summary .chev{transform:rotate(90deg)}
+.chev{transition:.2s}
+
+/* ---------- status colours ---------- */
+.s-none{--sc:var(--gray)} .s-green{--sc:var(--green)} .s-red{--sc:var(--red)} .s-yellow{--sc:var(--yellow)} .s-blue{--sc:var(--blue)}
+.sdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--sc,var(--gray))}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:600;padding:3px 9px;border-radius:99px;background:color-mix(in srgb,var(--sc) 14%,transparent);color:var(--sc)}
+
+/* ---------- tasks ---------- */
+.tasklist{display:flex;flex-direction:column;gap:8px}
+.task{display:flex;align-items:center;gap:12px;padding:12px 14px 12px 12px;border:1px solid var(--border);border-left:3px solid var(--sc);border-radius:12px;background:var(--surface);transition:.15s}
+.task:hover{border-color:var(--border-2);border-left-color:var(--sc);box-shadow:var(--shadow-sm)}
+.task.s-green .task-title,.task.s-blue .task-title{color:var(--text-2);text-decoration:line-through;text-decoration-color:var(--text-3)}
+.focus-btn{width:36px;height:36px;border-radius:10px;border:1px solid var(--border-2);background:var(--surface);display:grid;place-items:center;color:var(--text-2);transition:.15s;flex:none}
+.focus-btn:hover{border-color:var(--primary);color:var(--primary)}
+.focus-btn.running{background:var(--red);border-color:var(--red);color:#fff;box-shadow:0 0 0 4px color-mix(in srgb,var(--red) 20%,transparent)}
+.task-body{flex:1;min-width:0}
+.task-title{font-weight:600;font-size:.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.task-meta{display:flex;gap:12px;flex-wrap:wrap;font-size:.76rem;color:var(--text-2);margin-top:3px;align-items:center}
+.task-meta .st{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--sc)}
+.task-meta .note{color:var(--yellow);font-weight:500}
+.task-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.mk{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:8px;font-size:.76rem;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text-2);transition:.15s}
+.mk:hover{color:#fff}
+.mk-green{color:var(--green)} .mk-green:hover{background:var(--green);border-color:var(--green)}
+.mk-yellow{color:var(--yellow)} .mk-yellow:hover{background:var(--yellow);border-color:var(--yellow)}
+.mk-blue{color:var(--blue)} .mk-blue:hover{background:var(--blue);border-color:var(--blue)}
+.mk-none:hover,.mk-red:hover{background:var(--text-2);border-color:var(--text-2)}
+@media(max-width:600px){.task{flex-wrap:wrap}.task-actions{width:100%;justify-content:flex-start;padding-left:48px}}
+
+/* ---------- calendar plan table ---------- */
+.goal-card{text-align:center;padding:28px 22px 22px}
+.goal-card .goal{font-size:1.5rem;font-weight:700;letter-spacing:-.02em;margin:2px 0 6px}
+.goal-card .range{color:var(--text-2);font-size:.85rem}
+.goal-card .progress{max-width:420px;margin:16px auto 8px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.76rem;color:var(--text-2);align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.cal-wrap{overflow-x:auto;margin:0 -6px;padding:0 6px}
+.cal{min-width:740px}
+.cal-head{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px}
+.cal-head div{font-size:.7rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);padding:0 8px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cell{min-height:118px;border:1px solid var(--border);border-radius:12px;padding:8px;background:var(--surface);transition:.15s;display:flex;flex-direction:column;gap:6px}
+.cell:hover{border-color:var(--border-2)}
+.cell.blank{background:transparent;border:1px dashed var(--border);opacity:.5}
+.cell.past{background:var(--surface-2)}
+.cell.today{border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 16%,transparent)}
+.cell-head{display:flex;align-items:baseline;gap:5px;font-size:.72rem;color:var(--text-2)}
+.cell-head .dnum{font-weight:700;font-size:.9rem;color:var(--text)}
+.cell.today .dnum{background:var(--primary);color:#fff;border-radius:6px;padding:0 5px}
+.cell-head .dcount{margin-left:auto;font-weight:600;color:var(--text-3)}
+.cell-head .dcount.all{color:var(--green)}
+.chips{display:flex;flex-direction:column;gap:4px}
+.chip{display:flex;align-items:center;gap:6px;padding:4px 7px;border-radius:7px;border:1px solid transparent;background:color-mix(in srgb,var(--sc) 12%,var(--surface));font-size:.74rem;font-weight:500;text-align:left;width:100%;color:var(--text);transition:.15s}
+.chip:not(:disabled):hover{border-color:var(--sc);transform:translateX(2px)}
+.chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.chip.s-green span,.chip.s-blue span{text-decoration:line-through;color:var(--text-2)}
+.chip.s-none{background:var(--surface-2)}
+.chip.extra{border-style:dashed;border-color:var(--border-2)}
+.rest{font-size:.72rem;color:var(--text-3)}
+
+/* ---------- builder ---------- */
+.stepper{display:flex;list-style:none;margin:0 0 20px;padding:0;gap:0}
+.stepper li{flex:1;display:flex;align-items:center;gap:10px;color:var(--text-3);font-size:.84rem;font-weight:500;position:relative}
+.stepper li:not(:last-child)::after{content:"";flex:1;height:1px;background:var(--border-2);margin:0 14px}
+.stepper .n{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--border-2);display:grid;place-items:center;font-size:.76rem;font-weight:700;flex:none;background:var(--surface)}
+.stepper li.active{color:var(--text);font-weight:600}
+.stepper li.active .n{border-color:var(--primary);background:var(--primary);color:#fff}
+.stepper li.done .n{border-color:var(--green);background:var(--green);color:#fff}
+.stepper li.done{color:var(--text-2)}
+@media(max-width:620px){.stepper .t{display:none}}
+.block-grid{display:flex;flex-wrap:wrap;gap:8px;min-height:44px}
+.block{display:inline-flex;align-items:center;gap:8px;padding:7px 8px 7px 10px;border-radius:10px;background:var(--surface);border:1px solid var(--border-2);cursor:grab;user-select:none;-webkit-user-select:none;transition:.15s;font-size:.84rem;font-weight:500;box-shadow:var(--shadow-sm)}
+.block:hover{border-color:var(--primary);box-shadow:var(--shadow)}
+.block:active{cursor:grabbing}
+.block.dragging{opacity:.4}
+.bdot{width:9px;height:9px;border-radius:50%;flex:none}
+.bm{font-size:.7rem;color:var(--text-3);font-weight:600}
+.grip{color:var(--text-3);display:inline-flex}
+.block .x{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;color:var(--text-3)}
+.block .x:hover{background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red)}
+.block.mini{padding:5px 6px 5px 8px;font-size:.76rem;width:100%;border-radius:8px;box-shadow:none}
+.block.mini .bt{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dz{min-height:120px;border:1.5px dashed var(--border-2);border-radius:12px;padding:12px;transition:.15s;background:var(--surface-2)}
+.dz.over{border-color:var(--primary);background:var(--primary-soft);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 16%,transparent)}
+.dz .hint{color:var(--text-3);font-size:.8rem;text-align:center;padding:24px 0;pointer-events:none}
+
+/* ---------- weekly round: horizontal scroll ---------- */
+.week{display:grid;grid-template-columns:repeat(7,minmax(160px,1fr));gap:8px;margin:14px -4px 0;padding:4px 4px 12px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:thin;scrollbar-color:var(--border-2) transparent}
+.week::-webkit-scrollbar{height:8px}
+.week::-webkit-scrollbar-track{background:transparent}
+.week::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:99px}
+.week::-webkit-scrollbar-thumb:hover{background:var(--text-3)}
+.daycol{display:flex;flex-direction:column;gap:6px;scroll-snap-align:start;min-width:0}
+.daycol h4{display:flex;justify-content:space-between;align-items:center;padding:0 2px}
+.daycol .dz{flex:1;padding:6px;display:flex;flex-direction:column;gap:5px;min-height:150px}
+.daycol .dz .hint{padding:30px 0;font-size:.72rem}
+.palette{display:flex;gap:5px;align-items:center}
+.palette button{width:22px;height:22px;border-radius:50%;border:2px solid transparent;transition:.15s;box-shadow:inset 0 0 0 2px var(--surface)}
+.palette button.sel{border-color:var(--text)}
+.palette button:hover{transform:scale(1.12)}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border);flex-wrap:wrap}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-top:14px}
+.mday{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:10px}
+.mday label{font-size:.74rem;font-weight:600;color:var(--text-2)}
+.mday textarea{width:100%;min-height:90px;border:1px solid var(--border-2);border-radius:8px;padding:7px;background:var(--surface);font-size:.8rem;margin-top:6px;resize:vertical;outline:none;line-height:1.4}
+.mday textarea:focus{border-color:var(--primary)}
+
+/* ---------- drag & drop (pointer based) ---------- */
+[data-drag-type]{touch-action:none}
+.todo[data-drag-type]{touch-action:pan-y}
+.todo .grip{touch-action:none;cursor:grab;padding:4px;margin:-4px}
+.drag-ghost{position:fixed;left:0;top:0;z-index:100;pointer-events:none;box-shadow:var(--shadow-lg);opacity:.95;transform:translate(-9999px,-9999px);border-color:var(--primary)!important;transition:none!important;margin:0}
+body.is-dragging,body.is-dragging *{cursor:grabbing!important;user-select:none!important;-webkit-user-select:none!important}
+
+/* ---------- to-do ---------- */
+.todo{display:flex;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);cursor:grab;transition:.15s}
+.todo:hover{border-color:var(--border-2);box-shadow:var(--shadow-sm)}
+.todo .grip{color:var(--text-3)}
+.todo.done{opacity:.55;cursor:default}
+.todo.done .tt{text-decoration:line-through}
+.todo .tt{font-weight:600;font-size:.9rem}
+.todo.dragging{opacity:.4}
+.todolist{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+
+/* ---------- panel / modal / toast / focus pill ---------- */
+.overlay{position:fixed;inset:0;background:rgba(2,6,23,.45);backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:.2s;z-index:40}
+.overlay.on{opacity:1;pointer-events:auto}
+.panel{position:fixed;top:0;right:0;height:100%;width:min(400px,100%);background:var(--surface);z-index:50;transform:translateX(100%);transition:transform .3s cubic-bezier(.2,.8,.2,1);padding:24px;overflow-y:auto;box-shadow:var(--shadow-lg)}
+.panel.on{transform:none}
+.panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
+.pstats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pstat{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--surface-2)}
+.pstat .k{font-size:.72rem;color:var(--text-2);font-weight:500;display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.pstat .v{font-weight:700;font-size:1.1rem;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.panel-foot{margin-top:28px;padding-top:16px;border-top:1px solid var(--border)}
+.modal{position:fixed;inset:0;display:grid;place-items:center;z-index:60;pointer-events:none;padding:16px}
+.modal .box{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px;width:min(540px,100%);max-height:88vh;overflow:auto;box-shadow:var(--shadow-lg);transform:translateY(14px) scale(.98);opacity:0;transition:.22s;pointer-events:auto}
+.modal.on .box{transform:none;opacity:1}
+.modal.on{pointer-events:auto}
+.modal .box.wide{width:min(1000px,100%)}
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,16px);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:500;font-size:.86rem;opacity:0;transition:.25s;z-index:80;pointer-events:none;box-shadow:var(--shadow-lg)}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.focus-pill{position:fixed;right:24px;bottom:24px;z-index:35;display:none;align-items:center;gap:12px;padding:8px 8px 8px 16px;border-radius:99px;background:var(--text);color:var(--bg);box-shadow:var(--shadow-lg);font-variant-numeric:tabular-nums;max-width:min(92vw,420px)}
+.focus-pill.on{display:flex;animation:fade .25s}
+.focus-pill .rec{width:8px;height:8px;border-radius:50%;background:var(--red);animation:blink 1.2s infinite;flex:none}
+@keyframes blink{50%{opacity:.25}}
+.focus-pill .name{font-size:.8rem;opacity:.75;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
+.focus-pill .time{font-weight:700;font-size:.95rem}
+.focus-pill .stop{width:32px;height:32px;border-radius:50%;background:var(--bg);color:var(--text);display:grid;place-items:center}
+@media(max-width:900px){.focus-pill{bottom:78px;right:12px;left:12px;max-width:none;justify-content:space-between}.toast{bottom:80px}}
+.archive-item{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px;border:1px solid var(--border);border-radius:12px;transition:.15s}
+.archive-item:hover{border-color:var(--border-2);background:var(--surface-2)}
+.archive-item + .archive-item{margin-top:8px}
+.count{background:rgba(255,255,255,.25);padding:1px 8px;border-radius:99px;font-size:.72rem;margin-left:4px}
+.daylist{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <header class="mobile-bar"><div class="brand" style="padding:0" id="mobileBrand"></div><div class="row" style="gap:6px"><button class="btn-icon" data-action="theme" id="themeBtnM"></button><button class="avatar" data-action="open-account">ST</button></div></header>
+    <main>
+      <section id="view-today" class="view active"></section>
+      <section id="view-plan" class="view"></section>
+      <section id="view-create" class="view"></section>
+      <section id="view-todo" class="view"></section>
+    </main>
+  </div>
+  <nav class="bottom-nav" id="bottomNav"></nav>
+</div>
+<div class="focus-pill" id="focusPill"></div>
+<div class="overlay" id="overlay"></div>
+<aside class="panel" id="accountPanel"></aside>
+<div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= ICONS ================= */
+const I={
+  book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+  calendar:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>',
+  'plus-square':'<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>',
+  plus:'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  'check-square':'<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  check:'<polyline points="20 6 9 17 4 12"/>',
+  x:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+  moon:'<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+  sun:'<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>',
+  play:'<polygon points="6 3 20 12 6 21 6 3" fill="currentColor"/>',
+  pause:'<rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/>',
+  clock:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  zap:'<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  target:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  trash:'<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  'arrow-left':'<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>',
+  'arrow-right':'<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>',
+  archive:'<polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>',
+  undo:'<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>',
+  flag:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>',
+  award:'<circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.89"/>',
+  layers:'<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+  clipboard:'<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/>',
+  grip:'<circle cx="9" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1.4" fill="currentColor" stroke="none"/>',
+  half:'<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/>',
+  inbox:'<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+  user:'<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  'chevron-right':'<polyline points="9 18 15 12 9 6"/>',
+  eye:'<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  info:'<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+  trend:'<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>'
+};
+const icon=(n,s=16)=>`<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${I[n]}</svg>`;
+
+/* ================= UTILITIES ================= */
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const uid=()=>Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-4);
+const pad=n=>String(n).padStart(2,'0');
+const keyOf=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const todayKey=()=>keyOf(new Date());
+const parseKey=k=>{const[y,m,d]=k.split('-').map(Number);return new Date(y,m-1,d);};
+const addDays=(k,n)=>{const d=parseKey(k);d.setDate(d.getDate()+n);return keyOf(d);};
+const wdMon=k=>(parseKey(k).getDay()+6)%7;
+const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const DAYS_LONG=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const fmtDate=k=>parseKey(k).toLocaleDateString(undefined,{month:'short',day:'numeric'});
+const fmtLong=k=>parseKey(k).toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
+const fmtDur=s=>{s=Math.round(s||0);const h=Math.floor(s/3600),m=Math.floor(s%3600/60),sec=s%60;return h?`${h}h ${m}m`:m?`${m}m ${sec}s`:`${sec}s`;};
+const fmtClock=s=>{s=Math.round(s||0);return `${pad(Math.floor(s/3600))}:${pad(Math.floor(s%3600/60))}:${pad(s%60)}`;};
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const COLORS=['#4f46e5','#7c3aed','#db2777','#ea580c','#16a34a','#0891b2','#ca8a04','#64748b'];
+const STATUS={none:'Not yet',green:'Finished',yellow:'Partial',red:'Missed',blue:'Done late'};
+
+/* ================= STATE ================= */
+const KEY='studyflow_v2';
+function defaultState(){return{
+  profile:{joined:Date.now(),maxFocus:0,dailyStats:{}},
+  blocks:[],using:[],template:{0:[],1:[],2:[],3:[],4:[],5:[],6:[]},
+  draft:{goal:'',lastNum:2,lastUnit:'weeks',start:todayKey()},
+  manual:{goal:'',start:todayKey(),n:7,rows:[]},
+  plan:null,archived:[],loose:{},todos:[],timer:null,theme:'light',newColor:COLORS[0]
+};}
+let S; try{S=JSON.parse(localStorage.getItem(KEY))}catch{}
+S=Object.assign(defaultState(),S||{});
+const save=()=>{localStorage.setItem(KEY,JSON.stringify(S));cloudSync();};
+const UI={view:'today',step:1,mode:'code'};
+
+/* ================= CLOUD SYNC (GitHub Gist backend) =================
+   Uses a private GitHub Gist as a tiny free JSON store. You need:
+   1. A GitHub Personal Access Token with only the "gist" scope
+      (github.com -> Settings -> Developer settings -> Fine-grained tokens,
+      or classic token with just the gist checkbox).
+   2. A Gist ID. Leave blank and click "Create" in the Cloud Sync panel
+      to have one made for you automatically.
+   Both are stored only in this browser's localStorage. */
+const CLOUD_KEY='studyflow_cloud_cfg';
+let CLOUD; try{CLOUD=JSON.parse(localStorage.getItem(CLOUD_KEY))}catch{}
+CLOUD=CLOUD||{token:'',gistId:''};
+const GIST_FILE='studyflow-data.json';
+let cloudTimer=null,cloudStatus='off'; // off | idle | pending | syncing | synced | error
+
+function cloudConfigured(){return !!(CLOUD.token&&CLOUD.gistId);}
+function saveCloudCfg(){localStorage.setItem(CLOUD_KEY,JSON.stringify(CLOUD));}
+function setCloudStatus(s){cloudStatus=s;const el=$('#cloudStatusTxt');if(el)el.textContent=cloudStatusLabel();}
+function cloudStatusLabel(){
+  if(!cloudConfigured())return 'Not set up';
+  return {idle:'Synced ✓',pending:'Waiting…',syncing:'Syncing…',synced:'Synced ✓',error:'Sync failed — will retry'}[cloudStatus]||'';
+}
+async function cloudFetchGist(){
+  const r=await fetch(`https://api.github.com/gists/${CLOUD.gistId}`,{headers:{Authorization:`token ${CLOUD.token}`,Accept:'application/vnd.github+json'}});
+  if(!r.ok)throw new Error('load failed ('+r.status+')');
+  return r.json();
+}
+async function cloudLoad(){
+  if(!cloudConfigured())return null;
+  try{
+    const g=await cloudFetchGist();
+    const f=g.files&&g.files[GIST_FILE];
+    if(!f||!f.content)return null;
+    return JSON.parse(f.content);
+  }catch(e){console.warn('Cloud load failed',e);setCloudStatus('error');return null;}
+}
+async function cloudSaveNow(){
+  if(!cloudConfigured())return;
+  setCloudStatus('syncing');
+  try{
+    const r=await fetch(`https://api.github.com/gists/${CLOUD.gistId}`,{
+      method:'PATCH',
+      headers:{Authorization:`token ${CLOUD.token}`,Accept:'application/vnd.github+json','Content-Type':'application/json'},
+      body:JSON.stringify({files:{[GIST_FILE]:{content:JSON.stringify(S)}}})
+    });
+    if(!r.ok)throw new Error('save failed ('+r.status+')');
+    setCloudStatus('synced');
+  }catch(e){console.warn('Cloud save failed',e);setCloudStatus('error');}
+}
+function cloudSync(){
+  if(!cloudConfigured())return;
+  setCloudStatus('pending');
+  clearTimeout(cloudTimer);
+  cloudTimer=setTimeout(cloudSaveNow,2000);
+}
+async function cloudCreateGist(){
+  if(!CLOUD.token){toast('Enter a token first');return;}
+  try{
+    const r=await fetch('https://api.github.com/gists',{
+      method:'POST',
+      headers:{Authorization:`token ${CLOUD.token}`,Accept:'application/vnd.github+json','Content-Type':'application/json'},
+      body:JSON.stringify({description:'StudyFlow data (private)',public:false,files:{[GIST_FILE]:{content:JSON.stringify(S)}}})
+    });
+    if(!r.ok)throw new Error('create failed ('+r.status+')');
+    const g=await r.json();
+    CLOUD.gistId=g.id;saveCloudCfg();renderAccount();setCloudStatus('synced');
+    toast('Gist created — you\'re syncing to the cloud');
+  }catch(e){console.warn(e);toast('Could not create gist — check your token');}
+}
+
+/* ================= DATA HELPERS ================= */
+const newTask=(title,minutes,date,color,extra=false)=>({id:uid(),title,minutes:+minutes||0,date,color,extra,status:'none',timeUsed:0,completedAt:null,note:''});
+function* activeTasks(){ if(S.plan) for(const d of S.plan.days) for(const t of d.tasks) yield t; for(const k in S.loose) for(const t of S.loose[k]) yield t; }
+function* allTasks(){ yield* activeTasks(); for(const p of S.archived) for(const d of p.days) for(const t of d.tasks) yield t; }
+function findTask(id){ for(const t of allTasks()) if(t.id===id) return t; return null; }
+const tasksOn=k=>[...(S.plan?.days.find(d=>d.date===k)?.tasks||[]),...(S.loose[k]||[])];
+const blockById=id=>S.blocks.find(b=>b.id===id);
+const isDone=t=>t.status==='green'||t.status==='blue';
+function completionsByDay(){const m={};for(const t of allTasks()) if(isDone(t)&&t.completedAt){const k=keyOf(new Date(t.completedAt));m[k]=(m[k]||0)+1;}return m;}
+function streak(){const m=completionsByDay();let k=todayKey();if(!m[k])k=addDays(k,-1);let n=0;while(m[k]){n++;k=addDays(k,-1);}return n;}
+const runningSec=()=>S.timer?Math.max(0,(Date.now()-S.timer.start)/1000):0;
+function secondsOn(k){let s=S.profile.dailyStats[k]?.seconds||0;if(S.timer&&keyOf(new Date(S.timer.start))===k)s+=runningSec();return s;}
+function totalSeconds(){let s=0;for(const k in S.profile.dailyStats)s+=S.profile.dailyStats[k].seconds||0;return s+runningSec();}
+function planProgress(p){let total=0,done=0;p.days.forEach(d=>d.tasks.forEach(t=>{total++;if(isDone(t))done++;}));return{total,done,pct:total?Math.round(done/total*100):0};}
+
+/* ================= ROLLOVER / ARCHIVE ================= */
+function rollover(){
+  const t=todayKey();let changed=false;
+  for(const task of activeTasks()) if(task.date<t&&task.status==='none'){task.status='red';changed=true;}
+  if(S.plan&&t>S.plan.end){archivePlan();changed=true;toast('Your plan is finished and stored in your account');}
+  if(changed)save();
+}
+function archivePlan(){const p=S.plan;if(!p)return;p.finishedAt=Date.now();p.result=planProgress(p);S.archived.unshift(p);S.plan=null;}
+
+/* ================= TIMER ================= */
+function toggleTimer(id){
+  if(S.timer&&S.timer.taskId===id){stopTimer();}
+  else{if(S.timer)stopTimer();S.timer={taskId:id,start:Date.now()};toast('Focus session started');}
+  save();renderAll();
+}
+function stopTimer(){
+  const tm=S.timer;if(!tm)return;
+  const sec=Math.max(0,Math.round((Date.now()-tm.start)/1000));
+  const task=findTask(tm.taskId);if(task)task.timeUsed=(task.timeUsed||0)+sec;
+  const k=keyOf(new Date(tm.start));const ds=S.profile.dailyStats[k]||(S.profile.dailyStats[k]={seconds:0});ds.seconds+=sec;
+  if(sec>S.profile.maxFocus)S.profile.maxFocus=sec;
+  S.timer=null;toast(`Focus session saved — ${fmtDur(sec)}`);
+}
+
+/* ================= MARKING ================= */
+function mark(id,status){
+  const t=findTask(id);if(!t)return;
+  if(status==='none'&&t.date<todayKey())status='red';
+  if(status==='yellow'){openYellowModal(t);return;}
+  applyStatus(t,status);closeModal();
+}
+function applyStatus(t,status){
+  t.status=status;
+  if(isDone(t)){if(!t.completedAt)t.completedAt=Date.now();}else t.completedAt=null;
+  if(status!=='yellow')t.note='';
+  save();renderAll();
+}
+function markButtons(t){
+  const b=(s,ic,label)=>`<button class="mk mk-${s}" data-action="mark" data-id="${t.id}" data-status="${s}">${icon(ic,13)}<span>${label}</span></button>`;
+  switch(t.status){
+    case 'none':return b('green','check','Done')+b('yellow','half','Partial');
+    case 'green':return b('yellow','half','Partial')+b('none','undo','Clear');
+    case 'yellow':return b('green','check','Done')+b('none','undo','Clear');
+    case 'red':return b('blue','check','Done late');
+    case 'blue':return b('red','undo','Undo');
+  }return '';
+}
+function openYellowModal(t){
+  openModal(`<div class="row between"><h2>Partially finished</h2><button class="btn-icon" data-action="close-modal">${icon('x')}</button></div>
+  <p class="sub" style="margin:6px 0 14px">What is still left for <b>${esc(t.title)}</b>? It will be saved as a to-do block so you can finish it another time.</p>
+  <textarea class="input" id="leftTxt" placeholder="e.g. exercises 5–10, last section of the video">${esc(t.note)}</textarea>
+  <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn" data-action="yellow-save" data-id="${t.id}">Save only</button><button class="btn btn-primary" data-action="yellow-save" data-id="${t.id}" data-todo="1">Save and add to To-do</button></div>`);
+  setTimeout(()=>$('#leftTxt')?.focus(),50);
+}
+
+/* ================= SHELL / NAV ================= */
+const NAV=[['today','Today','calendar'],['plan','Plan table','grid'],['create','Create plan','plus-square'],['todo','To-do','check-square']];
+function renderShell(){
+  const items=NAV.map(([v,l,i])=>`<button class="nav-item ${UI.view===v?'active':''}" data-action="nav" data-view="${v}">${icon(i,18)}<span>${l}</span></button>`).join('');
+  const brand=`<span class="logo">${icon('book',16)}</span><span>StudyFlow</span>`;
+  $('#sidebar').innerHTML=`<div class="brand">${brand}</div><nav class="nav">${items}</nav>
+    <div class="side-foot"><button class="nav-item" data-action="theme">${icon(S.theme==='dark'?'sun':'moon',18)}<span>${S.theme==='dark'?'Light mode':'Dark mode'}</span></button>
+    <button class="account-card" data-action="open-account"><span class="avatar">ST</span><span><b>Student</b><small data-live="side-time">${fmtDur(totalSeconds())} studied</small></span></button></div>`;
+  $('#bottomNav').innerHTML=items;
+  $('#mobileBrand').innerHTML=brand;
+  $('#themeBtnM').innerHTML=icon(S.theme==='dark'?'sun':'moon',18);
+}
+function show(view){UI.view=view;$$('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+view));renderShell();renderAll();window.scrollTo({top:0,behavior:'smooth'});}
+function renderAll(){
+  ({today:renderToday,plan:renderPlan,create:renderCreate,todo:renderTodo})[UI.view]();
+  updateLive();if($('#accountPanel').classList.contains('on'))renderAccount();
+}
+const pageHead=(title,sub,actions='',eyebrow='')=>`<div class="page-head"><div>${eyebrow?`<div class="eyebrow">${eyebrow}</div>`:''}<h1>${title}</h1>${sub?`<p class="sub">${sub}</p>`:''}</div><div class="actions">${actions}</div></div>`;
+const stat=(ic,v,l,live='',extra='')=>`<div class="stat"><div class="stat-ic">${icon(ic,18)}</div><div class="stat-body" style="flex:1;min-width:0"><div class="stat-v" ${live?`data-live="${live}"`:''}>${v}</div><div class="stat-l">${l}</div>${extra}</div></div>`;
+const emptyState=(ic,title,text,btn='')=>`<div class="empty"><div class="eic">${icon(ic,22)}</div><h3>${title}</h3><p class="small">${text}</p>${btn}</div>`;
+
+/* ---------- TODAY ---------- */
+function renderToday(){
+  const k=todayKey(),tasks=tasksOn(k),done=completionsByDay()[k]||0;
+  const p=S.plan,prog=p?planProgress(p):null;
+  let html=pageHead(fmtLong(k),p?`Goal: ${esc(p.goal)}`:'No active plan yet',p?'':`<button class="btn btn-primary" data-action="nav" data-view="create">${icon('plus',15)} Create a plan</button>`,'Today');
+  html+=`<div class="stats">
+    ${stat('clock',fmtDur(secondsOn(k)),'Time used today','today-time')}
+    ${stat('check-square',`${done} <small>/ ${tasks.length}</small>`,'Task(s) completed')}
+    ${stat('zap',`${streak()} <small>day${streak()===1?'':'s'}</small>`,'Current streak')}
+    ${p?stat('trend',`${prog.pct}%`,`Plan progress · ${prog.done}/${prog.total} tasks`,'',`<div class="progress" style="margin-top:8px"><i style="width:${prog.pct}%"></i></div>`):stat('flag','—','Plan progress')}
+  </div>`;
+  html+=`<div class="card"><div class="card-head"><div class="row"><h2>Today's tasks</h2><span class="pill">${tasks.length}</span></div><span class="small muted">Press play to focus, then mark the task</span></div><div class="dz tasklist" data-zone="today" style="min-height:0;padding:${tasks.length?'0':'8px'};border:${tasks.length?'0':''};background:transparent">`;
+  if(!tasks.length)html+=emptyState('inbox','Nothing scheduled',p?'Rest today, add an extra task below, or drag a to-do block here.':'Create a plan to see your daily tasks here.',p?'':`<button class="btn btn-primary sm" data-action="nav" data-view="create">Create a plan</button>`);
+  tasks.forEach(t=>{const running=S.timer?.taskId===t.id;const used=(t.timeUsed||0)+(running?runningSec():0);
+    html+=`<div class="task s-${t.status}"><button class="focus-btn ${running?'running':''}" data-action="timer" data-id="${t.id}" title="${running?'Stop focus':'Start focus'}">${icon(running?'pause':'play',13)}</button>
+      <div class="task-body"><div class="task-title">${esc(t.title)}${t.extra?'<span class="tag">Extra</span>':''}</div>
+      <div class="task-meta"><span class="st"><i class="sdot"></i>${STATUS[t.status]}</span>${t.minutes?`<span>Est. ${t.minutes} min</span>`:''}<span>Used <b data-live="task" data-id="${t.id}">${fmtDur(used)}</b></span>${t.status==='yellow'&&t.note?`<span class="note">Left: ${esc(t.note)}</span>`:''}</div></div>
+      <div class="task-actions">${markButtons(t)}${t.extra?`<button class="btn-icon sm" data-action="del-task" data-id="${t.id}" title="Remove">${icon('trash',14)}</button>`:''}</div></div>`;});
+  html+=`</div></div>`;
+  html+=`<div class="card"><div class="card-head"><div><h3>Add extra task</h3><p class="sub" style="margin-top:2px">Only for today — not part of the plan table.</p></div></div>
+    <form id="extraForm" class="row" style="flex-wrap:nowrap"><input class="input" name="title" placeholder="e.g. Review flashcards" required style="flex:3"><input class="input" name="minutes" type="number" min="0" placeholder="Minutes" style="flex:1;min-width:90px"><button class="btn btn-primary">${icon('plus',15)} Add</button></form></div>`;
+  $('#view-today').innerHTML=html;
+}
+
+/* ---------- PLAN TABLE ---------- */
+function renderTable(plan,ro,includeLoose){
+  const cells=[];for(let i=0;i<wdMon(plan.start);i++)cells.push(null);
+  plan.days.forEach(d=>cells.push(d));while(cells.length%7)cells.push(null);
+  const today=todayKey();
+  let html=`<div class="cal-wrap"><div class="cal"><div class="cal-head">${DAYS.map(d=>`<div>${d}</div>`).join('')}</div><div class="cal-grid">`;
+  cells.forEach(d=>{if(!d){html+=`<div class="cell blank"></div>`;return;}
+    const list=[...d.tasks,...(includeLoose?(S.loose[d.date]||[]):[])];const dn=list.filter(isDone).length;const dt=parseKey(d.date);
+    html+=`<div class="cell ${d.date===today?'today':''} ${d.date<today?'past':''}"><div class="cell-head"><span class="dnum">${dt.getDate()}</span><span>${dt.toLocaleDateString(undefined,{month:'short'})}</span>${list.length?`<span class="dcount ${dn===list.length?'all':''}">${dn}/${list.length}</span>`:''}</div><div class="chips">${list.map(t=>chip(t,ro)).join('')||'<span class="rest">Rest day</span>'}</div></div>`;});
+  return html+`</div></div></div>`;
+}
+const chip=(t,ro)=>`<button class="chip s-${t.status} ${t.extra?'extra':''}" ${ro?'disabled':`data-action="open-task" data-id="${t.id}"`} title="${esc(t.title)}"><i class="sdot"></i><span>${esc(t.title)}</span></button>`;
+const legend=`<div class="legend">${Object.entries(STATUS).map(([s,l])=>`<span class="s-${s}"><i class="sdot"></i>${l}</span>`).join('')}</div>`;
+function renderPlan(){
+  const p=S.plan;
+  if(!p){$('#view-plan').innerHTML=pageHead('Plan table','Your active plan will appear here as a calendar','', 'Plan')+`<div class="card">${emptyState('grid','No active plan table','Create one with the 3-step block builder or by inserting a table directly.',`<div class="row" style="justify-content:center"><button class="btn btn-primary" data-action="nav" data-view="create">${icon('plus',15)} Create a plan</button>${S.archived.length?`<button class="btn" data-action="open-archive">${icon('archive',15)} Previous plans (${S.archived.length})</button>`:''}</div>`)}</div>`;return;}
+  const pr=planProgress(p);
+  $('#view-plan').innerHTML=pageHead('Plan table',`${fmtDate(p.start)} – ${fmtDate(p.end)} · ${p.days.length} days`,`<button class="btn" data-action="finish-plan">${icon('flag',15)} Finish plan</button><button class="btn danger" data-action="delete-plan">${icon('trash',15)} Delete</button>`,'Plan')+
+  `<div class="card goal-card"><div class="eyebrow">Goal</div><div class="goal">${esc(p.goal)}</div><div class="range">${pr.done} of ${pr.total} tasks finished · ${pr.pct}%</div><div class="progress"><i style="width:${pr.pct}%"></i></div></div>
+   <div class="card"><div class="card-head">${legend}<span class="small muted">${icon('info',13)} Click a task to mark it</span></div>${renderTable(p,false,true)}
+   <p class="small muted" style="margin-top:14px">Missed tasks turn red automatically at the end of the day. Finish them later to cover them blue.</p></div>`;
+}
+function openTaskModal(id){
+  const t=findTask(id);if(!t)return;const running=S.timer?.taskId===id;
+  openModal(`<div class="row between" style="align-items:flex-start"><div><span class="badge s-${t.status}"><i class="sdot"></i>${STATUS[t.status]}</span><h2 style="margin-top:10px">${esc(t.title)}</h2></div><button class="btn-icon" data-action="close-modal">${icon('x')}</button></div>
+  <p class="sub">${fmtLong(t.date)}${t.minutes?` · Est. ${t.minutes} min`:''} · Used ${fmtDur((t.timeUsed||0)+(running?runningSec():0))}${t.extra?' · Extra task':''}</p>
+  ${t.note?`<p class="small" style="margin-top:10px;color:var(--yellow)">Left to do: <b>${esc(t.note)}</b></p>`:''}
+  <div class="row" style="margin-top:18px">${markButtons(t)}<span class="spacer"></span><button class="focus-btn ${running?'running':''}" data-action="timer" data-id="${t.id}">${icon(running?'pause':'play',13)}</button>${t.extra?`<button class="btn-icon bordered" data-action="del-task" data-id="${t.id}">${icon('trash',15)}</button>`:''}</div>`);
+}
+
+/* ---------- CREATE ---------- */
+function blockHTML(b,type,extra='',attrs=''){return `<div class="block ${type==='day'?'mini':''}" data-drag-type="${type}" data-id="${b.id}" ${attrs}><i class="bdot" style="background:${b.color}"></i><span class="bt">${esc(b.title)}</span>${b.minutes?`<span class="bm">${b.minutes}m</span>`:''}${extra}${type!=='day'?`<span class="grip">${icon('grip',14)}</span>`:''}</div>`;}
+function renderCreate(){
+  const d=S.draft;
+  let html=pageHead('Create a plan table','Build it from task blocks in three steps, or insert a table directly.',`<div class="seg"><button class="${UI.mode==='code'?'active':''}" data-action="mode" data-mode="code">${icon('layers',15)} Block builder</button><button class="${UI.mode==='manual'?'active':''}" data-action="mode" data-mode="manual">${icon('clipboard',15)} Insert a table</button></div>`,'Create');
+  if(UI.mode==='code'){
+    const st=UI.step;
+    html+=`<ol class="stepper">${['Create task blocks','Goal, duration and weekly plan','Generate plan table'].map((s,i)=>`<li class="${st===i+1?'active':''} ${st>i+1?'done':''}"><span class="n">${st>i+1?icon('check',13):i+1}</span><span class="t">${s}</span></li>`).join('')}</ol>`;
+    if(st===1){
+      html+=`<div class="grid2"><div class="card"><div class="card-head"><div><h3>Block area</h3><p class="sub" style="margin-top:2px">One task = one block. Blocks stay here for reuse.</p></div></div>
+        <form id="blockForm" class="row" style="gap:8px"><input class="input" name="title" placeholder="Task name, e.g. Read 20 pages" required style="flex:1;min-width:160px"><input class="input" name="minutes" type="number" min="0" placeholder="min" style="width:80px"><div class="palette">${COLORS.map(c=>`<button type="button" data-action="pick-color" data-color="${c}" class="${S.newColor===c?'sel':''}" style="background:${c}"></button>`).join('')}</div><button class="btn btn-primary">${icon('plus',15)} Block</button></form>
+        <div class="block-grid mt">${S.blocks.map(b=>blockHTML(b,'block',`<button class="x" data-action="del-block" data-id="${b.id}" title="Delete block">${icon('x',12)}</button>`)).join('')||'<p class="small muted">No blocks yet — add your first task above.</p>'}</div>
+        <p class="xs muted mt">Drag a block into the using area (it is copied), or simply click it.</p></div>
+        <div class="card"><div class="card-head"><div><h3>Using area</h3><p class="sub" style="margin-top:2px">Blocks selected for this plan.</p></div><span class="pill">${S.using.length}</span></div>
+        <div class="dz" data-zone="using"><div class="block-grid" style="min-height:0">${S.using.map(id=>blockById(id)).filter(Boolean).map(b=>blockHTML(b,'using',`<button class="x" data-action="rm-using" data-id="${b.id}">${icon('x',12)}</button>`)).join('')}</div>${S.using.length?'':'<div class="hint">Drop blocks here</div>'}</div>
+        <div class="foot"><span class="small muted">Step 1 of 3</span><button class="btn btn-primary" data-action="step" data-step="2" ${S.using.length?'':'disabled'}>Next: weekly plan ${icon('arrow-right',15)}</button></div></div></div>`;
+    } else if(st===2){
+      html+=`<div class="card"><div class="row" style="gap:14px;align-items:flex-end"><div class="field" style="flex:3"><label class="f">Goal of this plan</label><input class="input" data-draft="goal" value="${esc(d.goal)}" placeholder="e.g. Pass the IELTS with band 7.5"></div>
+        <div class="field"><label class="f">Time last</label><div class="row" style="flex-wrap:nowrap;gap:6px"><input class="input" type="number" min="1" data-draft="lastNum" value="${d.lastNum}" style="width:80px"><select class="input" data-draft="lastUnit"><option value="weeks" ${d.lastUnit==='weeks'?'selected':''}>weeks</option><option value="days" ${d.lastUnit==='days'?'selected':''}>days</option></select></div></div>
+        <div class="field"><label class="f">Start date</label><input class="input" type="date" data-draft="start" value="${d.start}"></div></div></div>
+        <div class="card"><div class="card-head"><div><h3>Weekly round</h3><p class="sub" style="margin-top:2px">Drag blocks into each day (they are copied, so one block can be used on several days). You can also click a block to pick a day, or drag a placed block to another day.</p></div><div class="row" style="gap:6px"><button class="btn-icon sm bordered" data-action="week-scroll" data-dir="-1" title="Scroll left">${icon('arrow-left',14)}</button><button class="btn-icon sm bordered" data-action="week-scroll" data-dir="1" title="Scroll right">${icon('arrow-right',14)}</button><button class="btn sm btn-ghost" data-action="clear-week">Clear week</button></div></div>
+        <div class="block-grid" style="padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2)">${S.using.map(id=>blockById(id)).filter(Boolean).map(b=>blockHTML(b,'using','','data-action="pick-day-for-block"')).join('')||'<span class="small muted">Using area is empty.</span>'}</div>
+        <div class="week">${DAYS_LONG.map((name,i)=>{const items=(S.template[i]||[]).map(e=>({e,b:blockById(e.blockId)})).filter(x=>x.b);return `<div class="daycol"><h4>${name.slice(0,3)}<button class="btn-icon sm" data-action="pick-for-day" data-day="${i}" title="Add block">${icon('plus',14)}</button></h4><div class="dz" data-zone="day" data-day="${i}">${items.map(({e,b})=>blockHTML(b,'day',`<button class="x" data-action="rm-day" data-day="${i}" data-k="${e.k}">${icon('x',11)}</button>`,`data-day="${i}"`)).join('')||'<div class="hint">Drop here</div>'}</div></div>`;}).join('')}</div>
+        <div class="foot"><button class="btn" data-action="step" data-step="1">${icon('arrow-left',15)} Back</button><button class="btn btn-primary" data-action="step" data-step="3">Next: generate ${icon('arrow-right',15)}</button></div></div>`;
+    } else {
+      const p=generateFromTemplate();let tc=0;p.days.forEach(x=>tc+=x.tasks.length);
+      html+=`<div class="card"><div class="card-head"><div><h3>Preview</h3><p class="sub" style="margin-top:2px">The 7-day round is looped over <b>${p.days.length} days</b> (${fmtDate(p.start)} – ${fmtDate(p.end)}), creating <b>${tc} tasks</b>.</p></div></div>
+        <div class="goal-card" style="padding:12px 0 20px"><div class="eyebrow">Goal</div><div class="goal">${esc(p.goal)}</div></div>${renderTable(p,true)}
+        <div class="foot"><button class="btn" data-action="step" data-step="2">${icon('arrow-left',15)} Back</button><button class="btn btn-primary" data-action="generate">${icon('check',15)} Create this plan table</button></div></div>`;
+    }
+  } else {
+    const m=S.manual;
+    html+=`<div class="card"><p class="sub" style="margin:0 0 16px">Type your table directly — one line per task in each day (optionally <code>Task | minutes</code>). You can also paste a table copied from Excel, Sheets or Word: each row becomes a day, each cell a task.</p>
+      <div class="row" style="gap:14px;align-items:flex-end"><div class="field" style="flex:3"><label class="f">Goal</label><input class="input" data-manual="goal" value="${esc(m.goal)}" placeholder="Goal shown on top of the table"></div><div class="field"><label class="f">Start date</label><input class="input" type="date" data-manual="start" value="${m.start}"></div><div class="field" style="max-width:110px"><label class="f">Days</label><input class="input" type="number" min="1" max="120" data-manual="n" value="${m.n}"></div><button class="btn" data-action="manual-build">Build grid</button></div>
+      <details class="mt"><summary>${icon('chevron-right',14)}<span class="chev" style="display:none"></span>Paste a real table (tab / comma separated)</summary><textarea class="input mt-s" id="pasteArea" placeholder="Math ch.1&#9;Vocabulary 30 words&#10;Physics lab&#9;Essay outline"></textarea><button class="btn sm mt-s" data-action="manual-paste">Apply pasted rows</button></details>
+      <div class="mgrid">${Array.from({length:Math.max(0,+m.n||0)},(_,i)=>{const k=addDays(m.start,i);return `<div class="mday"><label>${DAYS[wdMon(k)]} · ${fmtDate(k)}</label><textarea data-manual-row="${i}" placeholder="One task per line">${esc(m.rows[i]||'')}</textarea></div>`;}).join('')}</div>
+      <div class="foot"><span></span><button class="btn btn-primary" data-action="manual-create">${icon('check',15)} Create plan table</button></div></div>`;
+  }
+  $('#view-create').innerHTML=html;
+}
+function generateFromTemplate(){
+  const d=S.draft,total=Math.max(1,(d.lastUnit==='weeks'?7:1)*(+d.lastNum||1)),days=[];
+  for(let i=0;i<total;i++){const k=addDays(d.start,i);const tasks=(S.template[wdMon(k)]||[]).map(e=>{const b=blockById(e.blockId);return b&&newTask(b.title,b.minutes,k,b.color);}).filter(Boolean);days.push({date:k,tasks});}
+  return{id:uid(),goal:d.goal.trim(),start:d.start,end:addDays(d.start,total-1),days,createdAt:Date.now(),mode:'code'};
+}
+function parseTaskLine(line){const m=line.split('|');const title=m[0].trim();const minutes=m[1]?parseInt(m[1]):0;return title?{title,minutes}:null;}
+function buildManualPlan(){
+  const m=S.manual,n=Math.max(1,+m.n||1),days=[];
+  for(let i=0;i<n;i++){const k=addDays(m.start,i);const tasks=(m.rows[i]||'').split('\n').map(parseTaskLine).filter(Boolean).map(x=>newTask(x.title,x.minutes,k,COLORS[i%COLORS.length]));days.push({date:k,tasks});}
+  return{id:uid(),goal:m.goal.trim(),start:m.start,end:addDays(m.start,n-1),days,createdAt:Date.now(),mode:'table'};
+}
+function createPlan(p){
+  if(!p.goal){toast('Please set a goal first');return;}
+  if(!p.days.some(d=>d.tasks.length)){toast('Add at least one task');return;}
+  if(S.plan&&!confirm('You already have an active plan. Archive it and start this new one?'))return;
+  if(S.plan)archivePlan();
+  S.plan=p;rollover();save();UI.step=1;show('plan');toast('Plan table created');
+}
+
+/* ---------- TODO ---------- */
+function renderTodo(){
+  const open=S.todos.filter(t=>!t.done),done=S.todos.filter(t=>t.done);
+  $('#view-todo').innerHTML=pageHead('To-do blocks','Unfinished parts of partially-done tasks land here. Drag a block into Today or press "Do today".','','To-do')+
+  `<div class="card"><form id="todoForm" class="row" style="flex-wrap:nowrap"><input class="input" name="title" placeholder="Add something to finish later" required><button class="btn btn-primary">${icon('plus',15)} Add</button></form>
+  <div class="todolist">${open.map(t=>`<div class="todo" data-drag-type="todo" data-id="${t.id}"><span class="grip">${icon('grip',16)}</span><div style="flex:1;min-width:0"><div class="tt">${esc(t.title)}</div><div class="xs muted">${t.from?`From “${esc(t.from)}”`:'Added manually'}${t.date?` · ${fmtDate(t.date)}`:''}</div></div><button class="btn sm" data-action="todo-today" data-id="${t.id}">Do today</button><button class="btn-icon sm" data-action="todo-done" data-id="${t.id}" title="Mark done">${icon('check',15)}</button><button class="btn-icon sm" data-action="todo-del" data-id="${t.id}" title="Delete">${icon('trash',14)}</button></div>`).join('')||emptyState('check-square','Nothing pending','You are all caught up.')}</div>
+  ${done.length?`<details class="mt"><summary>${icon('chevron-right',14)} Completed (${done.length})</summary><div class="todolist">${done.map(t=>`<div class="todo done"><span class="grip">${icon('check',16)}</span><div class="tt" style="flex:1">${esc(t.title)}</div><button class="btn-icon sm" data-action="todo-del" data-id="${t.id}">${icon('trash',14)}</button></div>`).join('')}</div></details>`:''}</div>`;
+}
+
+/* ---------- ACCOUNT ---------- */
+function renderAccount(){
+  const cbd=completionsByDay();let totalDone=0,maxDay=0;for(const k in cbd){totalDone+=cbd[k];maxDay=Math.max(maxDay,cbd[k]);}
+  const joined=new Date(S.profile.joined),daysWith=Math.floor((Date.now()-S.profile.joined)/864e5)+1,sk=streak();
+  const ps=(ic,k,v,live)=>`<div class="pstat"><div class="k">${icon(ic,13)} ${k}</div><div class="v" ${live?`data-live="${live}"`:''}>${v}</div></div>`;
+  $('#accountPanel').innerHTML=`<div class="panel-head"><div class="row"><span class="avatar lg">ST</span><div><h2>Student</h2><div class="sub" style="margin:0">Account panel</div></div></div><button class="btn-icon" data-action="close-account">${icon('x')}</button></div>
+  <div class="pstats">${ps('clock','Total studying time',fmtDur(totalSeconds()),'total-time')}${ps('check-square','Total tasks completed',totalDone)}${ps('calendar','Time joined',`${joined.toLocaleDateString()}<div class="xs muted" style="font-weight:500">${daysWith} day${daysWith===1?'':'s'} ago</div>`)}${ps('zap','Streak',`${sk} day${sk===1?'':'s'}`)}${ps('target','Maximum focus time',fmtDur(S.profile.maxFocus))}${ps('award','Max tasks in a day',maxDay)}</div>
+  <button class="btn btn-primary full mt" data-action="open-archive">${icon('archive',15)} Plan table(s) before <span class="count">${S.archived.length}</span></button>
+  <div class="card mt" style="padding:16px">
+    <div class="row between" style="margin-bottom:4px"><h3>Cloud sync</h3><span class="pill" id="cloudStatusTxt">${cloudStatusLabel()}</span></div>
+    <p class="xs muted" style="margin-bottom:12px">Backs this data up to a private GitHub Gist so you can pull it down on another device. Nothing leaves your browser except to your own gist.</p>
+    <label class="xs muted">GitHub token (gist scope only)</label>
+    <input id="cloudToken" type="password" class="input" placeholder="ghp_..." value="${esc(CLOUD.token)}" style="width:100%;margin:4px 0 10px">
+    <label class="xs muted">Gist ID</label>
+    <input id="cloudGistId" type="text" class="input" placeholder="leave blank to create one" value="${esc(CLOUD.gistId)}" style="width:100%;margin:4px 0 10px">
+    <div class="row" style="gap:8px">
+      <button class="btn sm" data-action="cloud-save-cfg">Save</button>
+      <button class="btn sm" data-action="cloud-create-gist">Create gist</button>
+      <button class="btn sm" data-action="cloud-pull">Pull from cloud</button>
+    </div>
+  </div>
+  <div class="panel-foot"><button class="btn btn-ghost danger sm" data-action="reset-all">${icon('trash',14)} Reset all data</button></div>`;
+}
+function openArchive(){
+  openModal(`<div class="row between" style="margin-bottom:16px"><h2>Previous plan tables</h2><button class="btn-icon" data-action="close-modal">${icon('x')}</button></div>
+  ${S.archived.map(p=>`<div class="archive-item"><div style="min-width:0"><b>${esc(p.goal)}</b><div class="xs muted">${fmtDate(p.start)} – ${fmtDate(p.end)} · ${p.days.length} days${p.result?` · ${p.result.done}/${p.result.total} tasks (${p.result.pct}%)`:''}</div></div><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn sm" data-action="view-archived" data-id="${p.id}">${icon('eye',14)} View</button><button class="btn-icon sm" data-action="del-archived" data-id="${p.id}">${icon('trash',14)}</button></div></div>`).join('')||emptyState('archive','No finished plan tables yet','Plans are stored here automatically when they end.')}`);
+}
+function viewArchived(id){const p=S.archived.find(x=>x.id===id);if(!p)return;const pr=planProgress(p);
+  openModal(`<div class="row between"><button class="btn sm btn-ghost" data-action="open-archive">${icon('arrow-left',14)} Back</button><button class="btn-icon" data-action="close-modal">${icon('x')}</button></div><div class="goal-card" style="padding:12px 0 18px"><div class="eyebrow">Goal</div><div class="goal">${esc(p.goal)}</div><div class="range">${fmtDate(p.start)} – ${fmtDate(p.end)} · ${pr.done}/${pr.total} tasks (${pr.pct}%)</div><div class="progress"><i style="width:${pr.pct}%"></i></div></div><div style="margin-bottom:10px">${legend}</div>${renderTable(p,true)}`,true);}
+
+/* ================= MODAL / PANEL / TOAST ================= */
+function openModal(html,wide){$('#modalBox').innerHTML=html;$('#modalBox').classList.toggle('wide',!!wide);$('#modal').classList.add('on');$('#overlay').classList.add('on');}
+function closeModal(){$('#modal').classList.remove('on');if(!$('#accountPanel').classList.contains('on'))$('#overlay').classList.remove('on');}
+function openAccount(){renderAccount();$('#accountPanel').classList.add('on');$('#overlay').classList.add('on');}
+function closeAccount(){$('#accountPanel').classList.remove('on');if(!$('#modal').classList.contains('on'))$('#overlay').classList.remove('on');}
+let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2400);}
+
+/* ================= LIVE TICK ================= */
+let lastDay=todayKey();
+function updateLive(){
+  const pill=$('#focusPill');
+  if(S.timer){
+    if(pill.dataset.task!==S.timer.taskId){pill.dataset.task=S.timer.taskId;pill.innerHTML=`<span class="rec"></span><span class="name">${esc(findTask(S.timer.taskId)?.title||'Focus')}</span><span class="time" id="pillTime">00:00:00</span><button class="stop" data-action="timer" data-id="${S.timer.taskId}" title="Stop">${icon('pause',12)}</button>`;}
+    pill.classList.add('on');$('#pillTime').textContent=fmtClock(runningSec());
+  } else {pill.classList.remove('on');pill.dataset.task='';}
+  $$('[data-live]').forEach(el=>{const l=el.dataset.live;
+    if(l==='today-time')el.textContent=fmtDur(secondsOn(todayKey()));
+    else if(l==='total-time')el.textContent=fmtDur(totalSeconds());
+    else if(l==='side-time')el.textContent=fmtDur(totalSeconds())+' studied';
+    else if(l==='task'&&S.timer?.taskId===el.dataset.id){const t=findTask(el.dataset.id);if(t)el.textContent=fmtDur((t.timeUsed||0)+runningSec());}});
+}
+setInterval(()=>{updateLive();if(lastDay!==todayKey()){lastDay=todayKey();rollover();renderAll();}},1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){rollover();renderAll();}});
+
+/* ================= DRAG & DROP (pointer based — mouse, touch and pen) ================= */
+const DRAG={src:null,active:false,ghost:null,zone:null,pid:null,x:0,y:0,sx:0,sy:0,ox:0,oy:0,raf:0};
+let suppressClick=false;
+document.addEventListener('dragstart',e=>e.preventDefault());
+document.addEventListener('click',e=>{if(suppressClick){e.stopPropagation();e.preventDefault();suppressClick=false;}},true);
+function canDrop(zone,type){return zone==='today'?type==='todo':(zone==='using'||zone==='day')&&type!=='todo';}
+
+document.addEventListener('pointerdown',e=>{
+  if(e.pointerType==='mouse'&&e.button!==0)return;
+  const el=e.target.closest('[data-drag-type]');if(!el)return;
+  const ctl=e.target.closest('button,input,textarea,select,[data-action]');if(ctl&&ctl!==el)return;
+  if(e.pointerType!=='mouse'&&el.classList.contains('todo')&&!e.target.closest('.grip'))return;
+  Object.assign(DRAG,{src:el,pid:e.pointerId,sx:e.clientX,sy:e.clientY,x:e.clientX,y:e.clientY,active:false});
+});
+document.addEventListener('pointermove',e=>{
+  if(!DRAG.src||e.pointerId!==DRAG.pid)return;
+  DRAG.x=e.clientX;DRAG.y=e.clientY;
+  if(!DRAG.active){if(Math.hypot(DRAG.x-DRAG.sx,DRAG.y-DRAG.sy)<6)return;startDrag(e);}
+  positionGhost();updateZone();
+});
+document.addEventListener('pointerup',e=>{if(DRAG.src&&e.pointerId===DRAG.pid)finishDrag(true);});
+document.addEventListener('pointercancel',e=>{if(DRAG.src&&e.pointerId===DRAG.pid)finishDrag(false);});
+window.addEventListener('blur',()=>{if(DRAG.src)finishDrag(false);});
+
+function startDrag(e){
+  const el=DRAG.src,r=el.getBoundingClientRect();
+  DRAG.active=true;suppressClick=true;
+  DRAG.ox=Math.min(e.clientX-r.left,200);DRAG.oy=e.clientY-r.top;
+  const g=el.cloneNode(true);g.classList.remove('dragging');g.classList.add('drag-ghost');g.removeAttribute('data-drag-type');
+  g.querySelectorAll('.x').forEach(x=>x.remove());g.style.width=Math.min(r.width,260)+'px';
+  document.body.appendChild(g);DRAG.ghost=g;
+  el.classList.add('dragging');document.body.classList.add('is-dragging');
+  try{el.setPointerCapture(DRAG.pid)}catch{}
+  const loop=()=>{if(!DRAG.active)return;
+    if(DRAG.y<70)window.scrollBy(0,-10);else if(DRAG.y>innerHeight-70)window.scrollBy(0,10);
+    const w=$('.week');
+    if(w){const wr=w.getBoundingClientRect();
+      if(DRAG.y>wr.top&&DRAG.y<wr.bottom){if(DRAG.x<wr.left+56)w.scrollLeft-=10;else if(DRAG.x>wr.right-56)w.scrollLeft+=10;}}
+    updateZone();DRAG.raf=requestAnimationFrame(loop);};loop();
+}
+function positionGhost(){if(DRAG.ghost)DRAG.ghost.style.transform=`translate(${DRAG.x-DRAG.ox}px,${DRAG.y-DRAG.oy}px)`;}
+function updateZone(){
+  const under=document.elementFromPoint(DRAG.x,DRAG.y);
+  let z=under?under.closest('.dz'):null;
+  if(z&&!canDrop(z.dataset.zone,DRAG.src.dataset.dragType))z=null;
+  if(z!==DRAG.zone){DRAG.zone?.classList.remove('over');DRAG.zone=z;z?.classList.add('over');}
+}
+function finishDrag(drop){
+  const {src,zone,active}=DRAG;
+  cancelAnimationFrame(DRAG.raf);
+  if(active){
+    DRAG.ghost?.remove();src.classList.remove('dragging');zone?.classList.remove('over');document.body.classList.remove('is-dragging');
+    try{src.releasePointerCapture(DRAG.pid)}catch{}
+    if(drop&&zone)handleDrop(zone,{type:src.dataset.dragType,id:src.dataset.id,day:src.dataset.day});
+    setTimeout(()=>suppressClick=false,80);
+  }
+  Object.assign(DRAG,{src:null,active:false,ghost:null,zone:null,pid:null});
+}
+function handleDrop(z,{type,id,day}){
+  const zone=z.dataset.zone;
+  if(zone==='using')addToUsing(id);
+  else if(zone==='day'){const target=+z.dataset.day;if(type==='day'&&+day===target){toast('Already on this day');return;}addToDay(target,id);}
+  else if(zone==='today'&&type==='todo')todoToToday(id);
+}
+function addToUsing(id){if(!blockById(id))return;if(S.using.includes(id)){toast('Already in the using area');return;}S.using.push(id);save();renderAll();}
+function addToDay(day,blockId){if(!blockById(blockId))return;S.template[day].push({k:uid(),blockId});save();renderAll();toast(`Added to ${DAYS_LONG[day]}`);}
+function todoToToday(id){const td=S.todos.find(t=>t.id===id);if(!td||td.done)return;const k=todayKey();(S.loose[k]||(S.loose[k]=[])).push(newTask(td.title,0,k,'#d97706',true));td.done=true;save();renderAll();toast('Added to today');}
+
+/* ================= EVENTS ================= */
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-action]');if(!el)return;const a=el.dataset.action,id=el.dataset.id;
+  switch(a){
+    case 'nav':show(el.dataset.view);break;
+    case 'theme':S.theme=S.theme==='dark'?'light':'dark';save();applyTheme();renderShell();break;
+    case 'open-account':openAccount();break;
+    case 'mode':UI.mode=el.dataset.mode;renderCreate();break;
+    case 'step':{const s=+el.dataset.step;if(s===3){if(!S.draft.goal.trim()){toast('Please write a goal');return;}if(!Object.values(S.template).some(a=>a.length)){toast('Drag at least one block into a day');return;}}UI.step=s;renderCreate();break;}
+    case 'pick-color':S.newColor=el.dataset.color;save();$$('.palette button').forEach(b=>b.classList.toggle('sel',b===el));break;
+    case 'del-block':S.blocks=S.blocks.filter(b=>b.id!==id);S.using=S.using.filter(x=>x!==id);for(const k in S.template)S.template[k]=S.template[k].filter(x=>x.blockId!==id);save();renderCreate();break;
+    case 'rm-using':S.using=S.using.filter(x=>x!==id);save();renderCreate();break;
+    case 'rm-day':S.template[el.dataset.day]=S.template[el.dataset.day].filter(x=>x.k!==el.dataset.k);save();renderCreate();break;
+    case 'clear-week':for(const k in S.template)S.template[k]=[];save();renderCreate();break;
+    case 'week-scroll':$('.week')?.scrollBy({left:+el.dataset.dir*340,behavior:'smooth'});break;
+    case 'pick-for-day':{const day=+el.dataset.day;const list=S.using.map(blockById).filter(Boolean);openModal(`<div class="row between" style="margin-bottom:14px"><h2>Add to ${DAYS_LONG[day]}</h2><button class="btn-icon" data-action="close-modal">${icon('x')}</button></div>${list.length?`<div class="block-grid">${list.map(b=>`<div class="block" style="cursor:pointer" data-action="pick-block" data-day="${day}" data-id="${b.id}"><i class="bdot" style="background:${b.color}"></i>${esc(b.title)}${b.minutes?`<span class="bm">${b.minutes}m</span>`:''}</div>`).join('')}</div>`:'<p class="muted small">The using area is empty.</p>'}`);break;}
+    case 'pick-day-for-block':{const b=blockById(id);if(!b)return;openModal(`<div class="row between" style="margin-bottom:6px"><h2>Add “${esc(b.title)}” to</h2><button class="btn-icon" data-action="close-modal">${icon('x')}</button></div><p class="sub" style="margin-bottom:14px">Choose a day of the weekly round.</p><div class="daylist">${DAYS_LONG.map((n,i)=>`<button class="btn" data-action="pick-block" data-day="${i}" data-id="${id}">${n}<span class="pill" style="margin-left:auto">${S.template[i].length}</span></button>`).join('')}</div><p class="xs muted mt">Tip: you can also drag the block straight into a day.</p>`);break;}
+    case 'pick-block':addToDay(+el.dataset.day,id);closeModal();break;
+    case 'generate':createPlan(generateFromTemplate());break;
+    case 'manual-build':save();renderCreate();break;
+    case 'manual-paste':{const txt=$('#pasteArea').value.trim();if(!txt)return;const rows=txt.split(/\r?\n/).map(r=>r.split(/\t|,|;/).map(c=>c.trim()).filter(Boolean).join('\n'));S.manual.rows=rows;S.manual.n=Math.max(rows.length,1);save();renderCreate();toast(`Imported ${rows.length} day(s)`);break;}
+    case 'manual-create':createPlan(buildManualPlan());break;
+    case 'mark':mark(id,el.dataset.status);break;
+    case 'yellow-save':{const t=findTask(id);const txt=$('#leftTxt').value.trim();if(t){t.note=txt;if(el.dataset.todo&&txt)S.todos.push({id:uid(),title:txt,from:t.title,date:t.date,done:false,createdAt:Date.now()});applyStatus(t,'yellow');}closeModal();if(el.dataset.todo&&txt)toast('Added to your to-do blocks');break;}
+    case 'timer':toggleTimer(id);if($('#modal').classList.contains('on'))openTaskModal(id);break;
+    case 'open-task':openTaskModal(id);break;
+    case 'del-task':{for(const k in S.loose)S.loose[k]=S.loose[k].filter(t=>t.id!==id);if(S.timer?.taskId===id)stopTimer();save();closeModal();renderAll();break;}
+    case 'finish-plan':if(confirm('Finish this plan now and store it in your account?')){for(const t of activeTasks())if(t.status==='none')t.status='red';archivePlan();save();renderAll();toast('Plan stored in your account');}break;
+    case 'delete-plan':if(confirm('Delete this plan table permanently? It will not be stored.')){S.plan=null;save();renderAll();}break;
+    case 'todo-today':todoToToday(id);break;
+    case 'todo-done':{const t=S.todos.find(x=>x.id===id);if(t)t.done=true;save();renderTodo();break;}
+    case 'todo-del':S.todos=S.todos.filter(x=>x.id!==id);save();renderTodo();break;
+    case 'open-archive':openArchive();break;
+    case 'view-archived':viewArchived(id);break;
+    case 'del-archived':if(confirm('Delete this archived plan?')){S.archived=S.archived.filter(p=>p.id!==id);save();openArchive();renderAll();}break;
+    case 'close-modal':closeModal();break;
+    case 'close-account':closeAccount();break;
+    case 'reset-all':if(confirm('Delete ALL data (plans, stats, blocks)? This cannot be undone.')){localStorage.removeItem(KEY);location.reload();}break;
+    case 'cloud-save-cfg':{CLOUD.token=$('#cloudToken').value.trim();CLOUD.gistId=$('#cloudGistId').value.trim();saveCloudCfg();renderAccount();toast(cloudConfigured()?'Cloud sync enabled':'Settings saved');break;}
+    case 'cloud-create-gist':CLOUD.token=$('#cloudToken').value.trim();saveCloudCfg();cloudCreateGist();break;
+    case 'cloud-pull':{if(!cloudConfigured()){toast('Set up your token and gist ID first');return;}(async()=>{const remote=await cloudLoad();if(remote){S=Object.assign(defaultState(),remote);localStorage.setItem(KEY,JSON.stringify(S));renderAll();renderAccount();toast('Pulled latest from cloud');}else toast('Nothing found in that gist yet');})();break;}
+  }
+});
+document.addEventListener('submit',e=>{
+  e.preventDefault();const f=e.target,fd=new FormData(f);
+  if(f.id==='blockForm'){S.blocks.push({id:uid(),title:fd.get('title').trim(),minutes:+fd.get('minutes')||0,color:S.newColor});save();renderCreate();toast('Block created');}
+  else if(f.id==='extraForm'){const k=todayKey();(S.loose[k]||(S.loose[k]=[])).push(newTask(fd.get('title').trim(),fd.get('minutes'),k,'#7c3aed',true));save();renderToday();toast('Extra task added for today');}
+  else if(f.id==='todoForm'){S.todos.push({id:uid(),title:fd.get('title').trim(),done:false,createdAt:Date.now()});save();renderTodo();}
+});
+document.addEventListener('input',e=>{
+  const el=e.target;
+  if(el.dataset.draft){S.draft[el.dataset.draft]=el.type==='number'?+el.value:el.value;save();}
+  if(el.dataset.manual){S.manual[el.dataset.manual]=el.type==='number'?+el.value:el.value;save();}
+  if(el.dataset.manualRow!==undefined){S.manual.rows[+el.dataset.manualRow]=el.value;save();}
+});
+// Step 1: clicking a block in the block area copies it into the using area
+document.addEventListener('click',e=>{const b=e.target.closest('.block[data-drag-type="block"]');if(b&&!e.target.closest('[data-action]'))addToUsing(b.dataset.id);});
+$('#overlay').addEventListener('click',()=>{closeModal();closeAccount();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(DRAG.active){finishDrag(false);return;}closeModal();closeAccount();}});
+function applyTheme(){document.documentElement.dataset.theme=S.theme;}
+
+/* ================= INIT ================= */
+(async function init(){
+  if(cloudConfigured()){
+    const remote=await cloudLoad();
+    if(remote){S=Object.assign(defaultState(),remote);localStorage.setItem(KEY,JSON.stringify(S));}
+  }
+  applyTheme();rollover();show('today');
+})();
+</script>
+</body>
+</html>
