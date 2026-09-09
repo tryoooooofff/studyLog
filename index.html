@@ -503,6 +503,7 @@ function ensureAssignments(){
   }
   save();
 }
+const isDone=t=>t.status==='green'||t.status==='blue';
 function completionsByDay(){const m={};for(const t of allTasks()) if(isDone(t)&&t.completedAt){const k=keyOf(new Date(t.completedAt));m[k]=(m[k]||0)+1;}return m;}
 function streak(){const m=completionsByDay();let k=todayKey();if(!m[k])k=addDays(k,-1);let n=0;while(m[k]){n++;k=addDays(k,-1);}return n;}
 const runningSec=()=>S.timer?Math.max(0,(Date.now()-S.timer.start)/1000):0;
