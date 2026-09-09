@@ -464,13 +464,13 @@ function toggleTimer(id){
   else{if(S.timer)stopTimer();S.timer={taskId:id,start:Date.now()};toast('Focus session started');}
   save();renderAll();
 }
-function stopTimer(){
+function stopTimer(reason){
   const tm=S.timer;if(!tm)return;
   const sec=Math.max(0,Math.round((Date.now()-tm.start)/1000));
   const task=findTask(tm.taskId);if(task)task.timeUsed=(task.timeUsed||0)+sec;
   const k=keyOf(new Date(tm.start));const ds=S.profile.dailyStats[k]||(S.profile.dailyStats[k]={seconds:0});ds.seconds+=sec;
   if(sec>S.profile.maxFocus)S.profile.maxFocus=sec;
-  S.timer=null;toast(`Focus session saved — ${fmtDur(sec)}`);
+  S.timer=null;toast(reason==='hidden'?`Paused — ${fmtDur(sec)} saved (you left the page)`:`Focus session saved — ${fmtDur(sec)}`);
 }
 
 /* ================= MARKING ================= */
@@ -699,7 +699,16 @@ function updateLive(){
     else if(l==='task'&&S.timer?.taskId===el.dataset.id){const t=findTask(el.dataset.id);if(t)el.textContent=fmtDur((t.timeUsed||0)+runningSec());}});
 }
 setInterval(()=>{updateLive();if(lastDay!==todayKey()){lastDay=todayKey();rollover();renderAll();}},1000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){rollover();renderAll();}});
+// Stop the focus timer whenever this tab/page leaves the foreground (tab
+// switched away, window minimized, or the laptop screen/lid sleeps). This
+// stops the clock from racking up time while the user is away or asleep.
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){if(S.timer){stopTimer('hidden');save();}}
+  else{rollover();renderAll();}
+});
+// Also stop it when the page is being closed/unloaded/reloaded, so a session
+// can't be "left running" in storage and count hours of away-time on reopen.
+window.addEventListener('pagehide',()=>{if(S.timer){stopTimer('hidden');save();}});
 
 /* ================= DRAG & DROP (pointer based — mouse, touch and pen) ================= */
 const DRAG={src:null,active:false,ghost:null,zone:null,pid:null,x:0,y:0,sx:0,sy:0,ox:0,oy:0,raf:0};
@@ -836,6 +845,10 @@ function applyTheme(){document.documentElement.dataset.theme=S.theme;}
     const remote=await cloudLoad();
     if(remote){S=Object.assign(defaultState(),remote);localStorage.setItem(KEY,JSON.stringify(S));}
   }
+  // A focus session should only ever be live while this page is open in the
+  // foreground. If a stale running timer survived a reload/unload, drop it so
+  // it can't start counting wall-clock hours from the old timestamp.
+  if(S.timer)S.timer=null;
   applyTheme();rollover();show('today');
 })();
 </script>
