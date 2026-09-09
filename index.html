@@ -505,7 +505,7 @@ function openYellowModal(t){
 }
 
 /* ================= SHELL / NAV ================= */
-const NAV=[['today','Today','calendar'],['plan','Plan table','grid'],['create','Create plan','plus-square'],['todo','To-do','check-square']];
+const NAV=[['today','Today','calendar'],['plan','Plan table','grid'],['create','Create plan','plus-square'],['todo','To-do','check-square'],['assignments','Assignments','book']];
 function renderShell(){
   const items=NAV.map(([v,l,i])=>`<button class="nav-item ${UI.view===v?'active':''}" data-action="nav" data-view="${v}">${icon(i,18)}<span>${l}</span></button>`).join('');
   const brand=`<span class="logo">${icon('book',16)}</span><span>StudyFlow</span>`;
@@ -518,7 +518,7 @@ function renderShell(){
 }
 function show(view){UI.view=view;$$('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+view));renderShell();renderAll();window.scrollTo({top:0,behavior:'smooth'});}
 function renderAll(){
-  ({today:renderToday,plan:renderPlan,create:renderCreate,todo:renderTodo})[UI.view]();
+  ({today:renderToday,plan:renderPlan,create:renderCreate,todo:renderTodo,assignments:renderAssignments})[UI.view]();
   updateLive();if($('#accountPanel').classList.contains('on'))renderAccount();
 }
 const pageHead=(title,sub,actions='',eyebrow='')=>`<div class="page-head"><div>${eyebrow?`<div class="eyebrow">${eyebrow}</div>`:''}<h1>${title}</h1>${sub?`<p class="sub">${sub}</p>`:''}</div><div class="actions">${actions}</div></div>`;
@@ -669,6 +669,39 @@ function renderAccount(){
     </div>
   </div>
   <div class="panel-foot"><button class="btn btn-ghost danger sm" data-action="reset-all">${icon('trash',14)} Reset all data</button></div>`;
+}
+function renderAssignments() {
+  const k = todayKey();
+  const assignments = {
+    physic: newTask('Physic: physicist Math tutor's unit paper x1', 60, k, '#a855f7'),
+    maths: newTask('Maths: past paper x1', 90, k, '#f97316'),
+    chemistry: newTask('Chemistry: physicist Math tutor's unit paper x1', 60, k, '#ec4899'),
+    computer_science: newTask('Computer science: physicist Math tutor's unit paper x1[any]', 45, k, '#14b8a6'),
+    geography_business: newTask('Geography/Business: revise 30min', 30, k, '#ef4444'),
+    german_english: newTask('German/English: review lesson today', 30, k, '#3b82f6'),
+    additional_math: newTask('Additional Math: exam-mate unit question x10', 120, k, '#8b5cf6')
+  };
+  const openTasks = Object.values(assignments).filter(t => t.status !== 'green');
+  const doneTasks = Object.values(assignments).filter(t => t.status === 'green');
+  let html = pageHead('Assignments', 'Daily tasks based on class schedule', '', 'Assignments');
+  html += '<div class="card"><div class="card-head"><div class="row"><h2>Today's assignments</h2><span class="pill">' + Object.keys(assignments).length + '</span></div><span class="small muted">Based on your class schedule - adjust blocks as needed</span></div>';
+  html += '<div class="dz tasklist" style="min-height:0;padding:8px;background:transparent">';
+  if (Object.keys(assignments).length === 0) {
+    html += emptyState('inbox', 'No assignments scheduled');
+  }
+  openTasks.forEach(t => {
+    const running = S.timer?.taskId === t.id;
+    const used = (t.timeUsed || 0) + (running ? runningSec() : 0);
+    html += '<div class="task s-' + t.status + '"><button class="focus-btn ' + (running ? 'running' : '') + '" data-action="timer" data-id="' + t.id + '" title="' + (running ? 'Stop focus' : 'Start focus') + '">' + icon(running ? 'pause' : 'play', 13) + '</button>';
+    html += '<div class="task-body"><div class="task-title">' + esc(t.title) + '</div>';
+    html += '<div class="task-meta"><span class="st"><i class="sdot"></i>' + STATUS[t.status] + '</span>' + (t.minutes ? '<span>Est. ' + t.minutes + ' min</span>' : '') + '<span>Used <b data-live="task" data-id="' + t.id + '">' + fmtDur(used) + '</b></span></div></div>';
+    html += '<div class="task-actions">' + markButtons(t) + (t.extra ? '<button class="btn-icon sm" data-action="del-task" data-id="' + t.id + '" title="Remove">' + icon('trash', 14) + '</button>' : '') + '</div></div>';
+  });
+  html += '</div></div>';
+  html += '<div class="card" style="margin-top:16px"><div class="card-head"><div><h3>Quick actions</h3></div></div>';
+  html += '<div class="row" style="gap:8px;margin-top:12px"><button class="btn btn-primary" data-action="assignments-reset">Reset assignments</button>';
+  html += '<button class="btn" data-action="assignments-today">Add all to Today</button></div></div>';
+  $('#view-todo').innerHTML = html;
 }
 function openArchive(){
   openModal(`<div class="row between" style="margin-bottom:16px"><h2>Previous plan tables</h2><button class="btn-icon" data-action="close-modal">${icon('x')}</button></div>
