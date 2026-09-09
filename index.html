@@ -284,6 +284,7 @@ body.is-dragging,body.is-dragging *{cursor:grabbing!important;user-select:none!i
       <section id="view-plan" class="view"></section>
       <section id="view-create" class="view"></section>
       <section id="view-todo" class="view"></section>
+      <section id="view-assignments" class="view"></section>
     </main>
   </div>
   <nav class="bottom-nav" id="bottomNav"></nav>
@@ -353,12 +354,21 @@ const STATUS={none:'Not yet',green:'Finished',yellow:'Partial',red:'Missed',blue
 
 /* ================= STATE ================= */
 const KEY='studyflow_v2';
+const ASSIGNMENTS=[
+  {id:'physic',title:'Physic: physicist Math tutor\'s unit paper x1',minutes:60,color:'#a855f7'},
+  {id:'maths',title:'Maths: past paper x1',minutes:90,color:'#f97316'},
+  {id:'chemistry',title:'Chemistry: physicist Math tutor\'s unit paper x1',minutes:60,color:'#ec4899'},
+  {id:'computer_science',title:'Computer science: physicist Math tutor\'s unit paper x1[any]',minutes:45,color:'#14b8a6'},
+  {id:'geography_business',title:'Geography/Business: revise 30min',minutes:30,color:'#ef4444'},
+  {id:'german_english',title:'German/English: review lesson today',minutes:30,color:'#3b82f6'},
+  {id:'additional_math',title:'Additional Math: exam-mate unit question x10',minutes:120,color:'#8b5cf6'}
+];
 function defaultState(){return{
   profile:{joined:Date.now(),maxFocus:0,dailyStats:{}},
   blocks:[],using:[],template:{0:[],1:[],2:[],3:[],4:[],5:[],6:[]},
   draft:{goal:'',lastNum:2,lastUnit:'weeks',start:todayKey()},
   manual:{goal:'',start:todayKey(),n:7,rows:[]},
-  plan:null,archived:[],loose:{},todos:[],timer:null,theme:'light',newColor:COLORS[0]
+  plan:null,archived:[],loose:{},todos:[],assignments:null,timer:null,theme:'light',newColor:COLORS[0]
 };}
 let S; try{S=JSON.parse(localStorage.getItem(KEY))}catch{}
 S=Object.assign(defaultState(),S||{});
@@ -437,10 +447,17 @@ async function cloudCreateGist(){
 /* ================= DATA HELPERS ================= */
 const newTask=(title,minutes,date,color,extra=false)=>({id:uid(),title,minutes:+minutes||0,date,color,extra,status:'none',timeUsed:0,completedAt:null,note:''});
 function* activeTasks(){ if(S.plan) for(const d of S.plan.days) for(const t of d.tasks) yield t; for(const k in S.loose) for(const t of S.loose[k]) yield t; }
-function* allTasks(){ yield* activeTasks(); for(const p of S.archived) for(const d of p.days) for(const t of d.tasks) yield t; }
+function* allTasks(){ yield* activeTasks(); for(const t of (S.assignments||[])) yield t; for(const p of S.archived) for(const d of p.days) for(const t of d.tasks) yield t; }
 function findTask(id){ for(const t of allTasks()) if(t.id===id) return t; return null; }
 const tasksOn=k=>[...(S.plan?.days.find(d=>d.date===k)?.tasks||[]),...(S.loose[k]||[])];
 const blockById=id=>S.blocks.find(b=>b.id===id);
+function ensureAssignments(){
+  const t=todayKey();
+  if(!S.assignments||S.assignments[0]?.date!==t){
+    S.assignments=ASSIGNMENTS.map(a=>Object.assign(newTask(a.title,a.minutes,t,a.color),{id:a.id}));
+    save();
+  }
+}
 const isDone=t=>t.status==='green'||t.status==='blue';
 function completionsByDay(){const m={};for(const t of allTasks()) if(isDone(t)&&t.completedAt){const k=keyOf(new Date(t.completedAt));m[k]=(m[k]||0)+1;}return m;}
 function streak(){const m=completionsByDay();let k=todayKey();if(!m[k])k=addDays(k,-1);let n=0;while(m[k]){n++;k=addDays(k,-1);}return n;}
@@ -518,6 +535,7 @@ function renderShell(){
 }
 function show(view){UI.view=view;$$('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+view));renderShell();renderAll();window.scrollTo({top:0,behavior:'smooth'});}
 function renderAll(){
+  ensureAssignments();
   ({today:renderToday,plan:renderPlan,create:renderCreate,todo:renderTodo,assignments:renderAssignments})[UI.view]();
   updateLive();if($('#accountPanel').classList.contains('on'))renderAccount();
 }
@@ -672,21 +690,13 @@ function renderAccount(){
 }
 function renderAssignments() {
   const k = todayKey();
-  const assignments = {
-    physic: newTask('Physic: physicist Math tutor\'s unit paper x1', 60, k, '#a855f7'),
-    maths: newTask('Maths: past paper x1', 90, k, '#f97316'),
-    chemistry: newTask('Chemistry: physicist Math tutor\'s unit paper x1', 60, k, '#ec4899'),
-    computer_science: newTask('Computer science: physicist Math tutor\'s unit paper x1[any]', 45, k, '#14b8a6'),
-    geography_business: newTask('Geography/Business: revise 30min', 30, k, '#ef4444'),
-    german_english: newTask('German/English: review lesson today', 30, k, '#3b82f6'),
-    additional_math: newTask('Additional Math: exam-mate unit question x10', 120, k, '#8b5cf6')
-  };
-  const openTasks = Object.values(assignments).filter(t => t.status !== 'green');
-  const doneTasks = Object.values(assignments).filter(t => t.status === 'green');
+  const assignments = S.assignments || [];
+  const openTasks = assignments.filter(t => !isDone(t));
+  const doneTasks = assignments.filter(t => isDone(t));
   let html = pageHead('Assignments', 'Daily tasks based on class schedule', '', 'Assignments');
-  html += '<div class="card"><div class="card-head"><div class="row"><h2>Today\'s assignments</h2><span class="pill">' + Object.keys(assignments).length + '</span></div><span class="small muted">Based on your class schedule - adjust blocks as needed</span></div>';
+  html += '<div class="card"><div class="card-head"><div class="row"><h2>Today\'s assignments</h2><span class="pill">' + assignments.length + '</span></div><span class="small muted">Based on your class schedule - adjust blocks as needed</span></div>';
   html += '<div class="dz tasklist" style="min-height:0;padding:8px;background:transparent">';
-  if (Object.keys(assignments).length === 0) {
+  if (assignments.length === 0) {
     html += emptyState('inbox', 'No assignments scheduled');
   }
   openTasks.forEach(t => {
@@ -698,10 +708,13 @@ function renderAssignments() {
     html += '<div class="task-actions">' + markButtons(t) + (t.extra ? '<button class="btn-icon sm" data-action="del-task" data-id="' + t.id + '" title="Remove">' + icon('trash', 14) + '</button>' : '') + '</div></div>';
   });
   html += '</div></div>';
+  if (doneTasks.length) {
+    html += '<details class="mt"><summary>' + icon('chevron-right', 14) + ' Completed (' + doneTasks.length + ')</summary><div class="tasklist">' + doneTasks.map(t => '<div class="task s-' + t.status + '" style="opacity:.6"><div class="task-body"><div class="task-title" style="text-decoration:line-through;color:var(--text-2)">' + esc(t.title) + '</div></div><div class="task-actions">' + markButtons(t) + '</div></div>').join('') + '</div></details>';
+  }
   html += '<div class="card" style="margin-top:16px"><div class="card-head"><div><h3>Quick actions</h3></div></div>';
-  html += '<div class="row" style="gap:8px;margin-top:12px"><button class="btn btn-primary" data-action="assignments-reset">Reset assignments</button>';
-  html += '<button class="btn" data-action="assignments-today">Add all to Today</button></div></div>';
-  $('#view-todo').innerHTML = html;
+  html += '<div class="row" style="gap:8px;margin-top:12px"><button class="btn btn-primary" data-action="assignments-today">Add all to Today</button>';
+  html += '<button class="btn" data-action="assignments-reset">Reset assignments</button></div></div>';
+  $('#view-assignments').innerHTML = html;
 }
 function openArchive(){
   openModal(`<div class="row between" style="margin-bottom:16px"><h2>Previous plan tables</h2><button class="btn-icon" data-action="close-modal">${icon('x')}</button></div>
@@ -843,6 +856,8 @@ document.addEventListener('click',e=>{
     case 'todo-today':todoToToday(id);break;
     case 'todo-done':{const t=S.todos.find(x=>x.id===id);if(t)t.done=true;save();renderTodo();break;}
     case 'todo-del':S.todos=S.todos.filter(x=>x.id!==id);save();renderTodo();break;
+    case 'assignments-today':{const k=todayKey();let n=0;(S.assignments||[]).forEach(t=>{if(!isDone(t)&&!tasksOn(k).some(x=>x.id===t.id)){(S.loose[k]||(S.loose[k]=[])).push(newTask(t.title,t.minutes,k,t.color,true));n++;}});save();renderAll();toast(n?`Added ${n} assignment(s) to Today`:'All open assignments are already on Today');break;}
+    case 'assignments-reset':{S.assignments=ASSIGNMENTS.map(a=>Object.assign(newTask(a.title,a.minutes,todayKey(),a.color),{id:a.id}));save();renderAll();toast('Assignments reset');break;}
     case 'open-archive':openArchive();break;
     case 'view-archived':viewArchived(id);break;
     case 'del-archived':if(confirm('Delete this archived plan?')){S.archived=S.archived.filter(p=>p.id!==id);save();openArchive();renderAll();}break;
