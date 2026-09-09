@@ -363,6 +363,28 @@ const ASSIGNMENTS=[
   {id:'german_english',title:'German/English: review lesson today',minutes:30,color:'#3b82f6'},
   {id:'additional_math',title:'Additional Math: exam-mate unit question x10',minutes:120,color:'#8b5cf6'}
 ];
+
+// Schedule: each day (Mon=0..Fri=4) maps to subject names
+const SCHEDULE = {
+  0: ['Computer Science', 'English', 'Geography', 'Chemistry', 'Business'],    // Monday
+  1: ['Physics', 'Mathematics', 'German', 'Computer Science', 'Chemistry'],    // Tuesday
+  2: ['English', 'Geography', 'Additional Mathematics', 'Mathematics', 'Physics'], // Wednesday
+  3: ['Geography', 'Business', 'Computer Science', 'Additional Mathematics'],    // Thursday
+  4: ['Business', 'Mathematics', 'English', 'Additional Mathematics', 'German']   // Friday
+};
+
+// Mapping from subject name to assignment id
+const SUBJECT_TO_ASSIGNMENT = {
+  'Computer Science': 'computer_science',
+  'English': 'german_english',
+  'Geography': 'geography_business',
+  'Chemistry': 'chemistry',
+  'Business': 'geography_business',
+  'Physics': 'maths',
+  'Mathematics': 'maths',
+  'German': 'german_english',
+  'Additional Mathematics': 'additional_math'
+};
 function defaultState(){return{
   profile:{joined:Date.now(),maxFocus:0,dailyStats:{}},
   blocks:[],using:[],template:{0:[],1:[],2:[],3:[],4:[],5:[],6:[]},
@@ -453,12 +475,34 @@ const tasksOn=k=>[...(S.plan?.days.find(d=>d.date===k)?.tasks||[]),...(S.loose[k
 const blockById=id=>S.blocks.find(b=>b.id===id);
 function ensureAssignments(){
   const t=todayKey();
-  if(!S.assignments||S.assignments[0]?.date!==t){
-    S.assignments=ASSIGNMENTS.map(a=>Object.assign(newTask(a.title,a.minutes,t,a.color),{id:a.id}));
-    save();
+  const dayOfWeek = wdMon(t);
+  // Only generate schedule-based assignments for Mon-Fri (0-4)
+  if(dayOfWeek >= 0 && dayOfWeek <= 4){
+    const subjects = SCHEDULE[dayOfWeek];
+    // Map subjects to assignments, avoiding duplicates
+    const seenIds = new Set();
+    S.assignments = [];
+    subjects.forEach(subj => {
+      const assignId = SUBJECT_TO_ASSIGNMENT[subj];
+      if(assignId && !seenIds.has(assignId)){
+        const base = ASSIGNMENTS.find(a => a.id === assignId);
+        if(base){
+          const task = newTask(base.title, base.minutes, t, base.color);
+          task.id = base.id;
+          S.assignments.push(task);
+          seenIds.add(assignId);
+        }
+      }
+    });
+  } else {
+    // For weekend, use original assignments
+    if(!S.assignments||S.assignments[0]?.date!==t){
+      S.assignments=ASSIGNMENTS.map(a=>Object.assign(newTask(a.title,a.minutes,t,a.color),{id:a.id}))
+      save();
+    }
   }
+  save();
 }
-const isDone=t=>t.status==='green'||t.status==='blue';
 function completionsByDay(){const m={};for(const t of allTasks()) if(isDone(t)&&t.completedAt){const k=keyOf(new Date(t.completedAt));m[k]=(m[k]||0)+1;}return m;}
 function streak(){const m=completionsByDay();let k=todayKey();if(!m[k])k=addDays(k,-1);let n=0;while(m[k]){n++;k=addDays(k,-1);}return n;}
 const runningSec=()=>S.timer?Math.max(0,(Date.now()-S.timer.start)/1000):0;
