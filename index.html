@@ -529,7 +529,7 @@ function archivePlan(){const p=S.plan;if(!p)return;p.finishedAt=Date.now();p.res
 function toggleTimer(id){
   if(S.timer&&S.timer.taskId===id){stopTimer();}
   else{if(S.timer)stopTimer();S.timer={taskId:id,start:Date.now()};toast('Focus session started');}
-  save();renderAll();
+  save();renderAll();updateFavicon();
 }
 function stopTimer(reason){
   const tm=S.timer;if(!tm)return;
@@ -537,7 +537,8 @@ function stopTimer(reason){
   const task=findTask(tm.taskId);if(task)task.timeUsed=(task.timeUsed||0)+sec;
   const k=keyOf(new Date(tm.start));const ds=S.profile.dailyStats[k]||(S.profile.dailyStats[k]={seconds:0});ds.seconds+=sec;
   if(sec>S.profile.maxFocus)S.profile.maxFocus=sec;
-  S.timer=null;toast(reason==='hidden'?`Paused — ${fmtDur(sec)} saved (you left the page)`:`Focus session saved — ${fmtDur(sec)}`);
+  S.timer=null;toast(reason==='hidden'?`Paused — ${fmtDur(sec)} saved (you switched away)`:`Focus session saved — ${fmtDur(sec)}`);
+  updateFavicon();
 }
 
 /* ================= MARKING ================= */
@@ -782,8 +783,17 @@ function closeAccount(){$('#accountPanel').classList.remove('on');if(!$('#modal'
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2400);}
 
 /* ================= LIVE TICK ================= */
+// Favicon: book when idle, clock while a focus session is running.
+const FAV_BOOK="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%234f46e5'/%3E%3Cg fill='none' stroke='%23fff' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 47a5 5 0 0 1 5-5h27'/%3E%3Cpath d='M21 12h27v40H21a5 5 0 0 1-5-5V17a5 5 0 0 1 5-5z'/%3E%3C/g%3E%3C/svg%3E";
+const FAV_CLOCK="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%234f46e5'/%3E%3Cg fill='none' stroke='%23fff' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='32' cy='32' r='17'/%3E%3Cpath d='M32 22v10l7 5'/%3E%3C/g%3E%3C/svg%3E";
+function updateFavicon(){
+  const want=S.timer?FAV_CLOCK:FAV_BOOK;
+  const f=$('#favicon');
+  if(f&&f.getAttribute('href')!==want)f.setAttribute('href',want);
+}
 let lastDay=todayKey();
 function updateLive(){
+  updateFavicon();
   const pill=$('#focusPill');
   if(S.timer){
     if(pill.dataset.task!==S.timer.taskId){pill.dataset.task=S.timer.taskId;pill.innerHTML=`<span class="rec"></span><span class="name">${esc(findTask(S.timer.taskId)?.title||'Focus')}</span><span class="time" id="pillTime">00:00:00</span><button class="stop" data-action="timer" data-id="${S.timer.taskId}" title="Stop">${icon('pause',12)}</button>`;}
@@ -798,15 +808,24 @@ function updateLive(){
     else if(l==='task'&&S.timer?.taskId===el.dataset.id){const t=findTask(el.dataset.id);if(t)el.textContent=fmtDur((t.timeUsed||0)+runningSec());}});
 }
 setInterval(()=>{updateLive();if(lastDay!==todayKey()){lastDay=todayKey();rollover();renderAll();}},1000);
-// Stop the focus timer whenever this tab/page leaves the foreground (tab
-// switched away, window minimized, or the laptop screen/lid sleeps). This
-// stops the clock from racking up time while the user is away or asleep.
+// Switching to another TAB keeps the timer running — only refresh the UI
+// when the tab comes back to the foreground.
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){if(S.timer){stopTimer('hidden');save();}}
-  else{rollover();renderAll();}
+  if(!document.hidden){rollover();renderAll();}
 });
-// Also stop it when the page is being closed/unloaded/reloaded, so a session
-// can't be "left running" in storage and count hours of away-time on reopen.
+// Stop the timer when the user switches to another OS window/app. A tab
+// switch also fires `blur`, but it is immediately followed by the document
+// becoming hidden — so check after a short delay: hidden ⇒ tab switch (keep
+// timing); still visible but unfocused ⇒ another window took focus (stop).
+window.addEventListener('blur',()=>{
+  setTimeout(()=>{
+    if(document.hidden||document.hasFocus())return; // tab switch, or focus came right back
+    if(S.timer){stopTimer('hidden');save();renderAll();}
+  },250);
+});
+// Also stop it when the page is being closed/unloaded/reloaded (browser quit,
+// computer shutdown), so a session can't be "left running" in storage and
+// count hours of away-time on reopen.
 window.addEventListener('pagehide',()=>{if(S.timer){stopTimer('hidden');save();}});
 
 /* ================= DRAG & DROP (pointer based — mouse, touch and pen) ================= */
@@ -946,9 +965,9 @@ function applyTheme(){document.documentElement.dataset.theme=S.theme;}
     const remote=await cloudLoad();
     if(remote){S=Object.assign(defaultState(),remote);localStorage.setItem(KEY,JSON.stringify(S));}
   }
-  // A focus session should only ever be live while this page is open in the
-  // foreground. If a stale running timer survived a reload/unload, drop it so
-  // it can't start counting wall-clock hours from the old timestamp.
+  // A focus session should only ever be live while this page is open. If a
+  // stale running timer survived a crash/shutdown where pagehide never fired,
+  // drop it so it can't start counting wall-clock hours from the old timestamp.
   if(S.timer)S.timer=null;
   applyTheme();rollover();show('today');
 })();
