@@ -197,7 +197,10 @@ details[open] summary .chev{transform:rotate(90deg)}
 .block.dragging{opacity:.4}
 .bdot{width:9px;height:9px;border-radius:50%;flex:none}
 .bm{font-size:.7rem;color:var(--text-3);font-weight:600}
-.grip{color:var(--text-3);display:inline-flex}
+.grip{color:var(--text-3);display:inline-flex;touch-action:none;cursor:grab;padding:3px;margin:-3px}
+.block{touch-action:pan-y}
+button,.btn,.btn-icon,.nav-item,.mk,.seg button{touch-action:manipulation}
+.block .grip{margin-left:2px}
 .block .x{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;color:var(--text-3)}
 .block .x:hover{background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red)}
 .block.mini{padding:5px 6px 5px 8px;font-size:.76rem;width:100%;border-radius:8px;box-shadow:none}
@@ -650,7 +653,7 @@ function openTaskModal(id){
 }
 
 /* ---------- CREATE ---------- */
-function blockHTML(b,type,extra='',attrs=''){return `<div class="block ${type==='day'?'mini':''}" data-drag-type="${type}" data-id="${b.id}" ${attrs}><i class="bdot" style="background:${b.color}"></i><span class="bt">${esc(b.title)}</span>${b.minutes?`<span class="bm">${b.minutes}m</span>`:''}${extra}${type!=='day'?`<span class="grip">${icon('grip',14)}</span>`:''}</div>`;}
+function blockHTML(b,type,extra='',attrs=''){return `<div class="block ${type==='day'?'mini':''}" data-drag-type="${type}" data-id="${b.id}" ${attrs}><i class="bdot" style="background:${b.color}"></i><span class="bt">${esc(b.title)}</span>${b.minutes?`<span class="bm">${b.minutes}m</span>`:''}${extra}<span class="grip">${icon('grip',type==='day'?12:14)}</span></div>`;}
 function renderCreate(){
   const d=S.draft;
   let html=pageHead('Create a plan table','Build it from task blocks in three steps, or insert a table directly.',`<div class="seg"><button class="${UI.mode==='code'?'active':''}" data-action="mode" data-mode="code">${icon('layers',15)} Block builder</button><button class="${UI.mode==='manual'?'active':''}" data-action="mode" data-mode="manual">${icon('clipboard',15)} Insert a table</button></div>`,'Create');
@@ -835,22 +838,38 @@ document.addEventListener('dragstart',e=>e.preventDefault());
 document.addEventListener('click',e=>{if(suppressClick){e.stopPropagation();e.preventDefault();suppressClick=false;}},true);
 function canDrop(zone,type){return zone==='today'?type==='todo':(zone==='using'||zone==='day')&&type!=='todo';}
 
+// Any leftover drag state (ghost node, body class, click suppression) would make
+// the whole page feel dead, so always wipe it before a new interaction starts.
+function resetDragArtifacts(){
+  suppressClick=false;
+  cancelAnimationFrame(DRAG.raf);
+  document.querySelectorAll('.drag-ghost').forEach(g=>g.remove());
+  document.querySelectorAll('.dragging').forEach(g=>g.classList.remove('dragging'));
+  document.querySelectorAll('.dz.over').forEach(g=>g.classList.remove('over'));
+  document.body.classList.remove('is-dragging');
+  Object.assign(DRAG,{src:null,active:false,ghost:null,zone:null,pid:null,raf:0});
+}
 document.addEventListener('pointerdown',e=>{
   if(e.pointerType==='mouse'&&e.button!==0)return;
+  if(DRAG.src&&e.pointerId!==DRAG.pid)resetDragArtifacts(); // stale drag from a lost pointerup
+  suppressClick=false;
   const el=e.target.closest('[data-drag-type]');if(!el)return;
-  const ctl=e.target.closest('button,input,textarea,select,[data-action]');if(ctl&&ctl!==el)return;
-  if(e.pointerType!=='mouse'&&el.classList.contains('todo')&&!e.target.closest('.grip'))return;
+  const ctl=e.target.closest('button,input,textarea,select,label,a,summary');if(ctl&&ctl!==el)return;
+  // On touch/pen a drag must start from the grip, otherwise normal taps and page
+  // scrolling over blocks would be hijacked (or cancelled) by the drag layer.
+  if(e.pointerType!=='mouse'&&!e.target.closest('.grip'))return;
   Object.assign(DRAG,{src:el,pid:e.pointerId,sx:e.clientX,sy:e.clientY,x:e.clientX,y:e.clientY,active:false});
 });
 document.addEventListener('pointermove',e=>{
   if(!DRAG.src||e.pointerId!==DRAG.pid)return;
   DRAG.x=e.clientX;DRAG.y=e.clientY;
-  if(!DRAG.active){if(Math.hypot(DRAG.x-DRAG.sx,DRAG.y-DRAG.sy)<6)return;startDrag(e);}
-  positionGhost();updateZone();
-});
-document.addEventListener('pointerup',e=>{if(DRAG.src&&e.pointerId===DRAG.pid)finishDrag(true);});
-document.addEventListener('pointercancel',e=>{if(DRAG.src&&e.pointerId===DRAG.pid)finishDrag(false);});
+  if(!DRAG.active){if(Math.hypot(DRAG.x-DRAG.sx,DRAG.y-DRAG.sy)<(e.pointerType==='mouse'?6:12))return;startDrag(e);}
+  e.preventDefault();positionGhost();updateZone();
+},{passive:false});
+window.addEventListener('pointerup',e=>{if(DRAG.src&&e.pointerId===DRAG.pid)finishDrag(true);});
+window.addEventListener('pointercancel',e=>{if(DRAG.src&&e.pointerId===DRAG.pid)finishDrag(false);});
 window.addEventListener('blur',()=>{if(DRAG.src)finishDrag(false);});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&DRAG.src)finishDrag(false);});
 
 function startDrag(e){
   const el=DRAG.src,r=el.getBoundingClientRect();
@@ -876,15 +895,18 @@ function updateZone(){
   if(z!==DRAG.zone){DRAG.zone?.classList.remove('over');DRAG.zone=z;z?.classList.add('over');}
 }
 function finishDrag(drop){
-  const {src,zone,active}=DRAG;
+  const {src,zone,active,pid}=DRAG;
   cancelAnimationFrame(DRAG.raf);
+  DRAG.ghost?.remove();
+  document.querySelectorAll('.drag-ghost').forEach(g=>g.remove());
+  src?.classList.remove('dragging');zone?.classList.remove('over');document.body.classList.remove('is-dragging');
+  try{src?.releasePointerCapture(pid)}catch{}
+  Object.assign(DRAG,{src:null,active:false,ghost:null,zone:null,pid:null,raf:0});
   if(active){
-    DRAG.ghost?.remove();src.classList.remove('dragging');zone?.classList.remove('over');document.body.classList.remove('is-dragging');
-    try{src.releasePointerCapture(DRAG.pid)}catch{}
     if(drop&&zone)handleDrop(zone,{type:src.dataset.dragType,id:src.dataset.id,day:src.dataset.day});
+    // Release the click guard shortly after the drop, and never leave it stuck.
     setTimeout(()=>suppressClick=false,80);
-  }
-  Object.assign(DRAG,{src:null,active:false,ghost:null,zone:null,pid:null});
+  } else suppressClick=false;
 }
 function handleDrop(z,{type,id,day}){
   const zone=z.dataset.zone;
