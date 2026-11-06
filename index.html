@@ -184,6 +184,11 @@ details[open] summary .chev{transform:rotate(90deg)}
 .cell-time{display:inline-flex;align-items:center;gap:4px;font-size:.68rem;font-weight:600;font-variant-numeric:tabular-nums;color:var(--primary-text);background:var(--primary-soft);padding:2px 7px;border-radius:6px;width:fit-content;max-width:100%;line-height:1.2}
 .cell-time.zero{color:var(--text-3);background:transparent;padding:2px 0;font-weight:500}
 .cell.past .cell-time:not(.zero){color:var(--text-2);background:color-mix(in srgb,var(--text) 6%,transparent)}
+.cell.covered{border-color:color-mix(in srgb,var(--yellow) 55%,var(--border));background:color-mix(in srgb,var(--yellow) 5%,var(--surface))}
+.cover-tag{font-size:.6rem;font-weight:800;letter-spacing:.06em;color:var(--yellow);background:color-mix(in srgb,var(--yellow) 14%,transparent);padding:2px 6px;border-radius:5px;margin-left:auto;white-space:nowrap}
+.cover-card{border-color:color-mix(in srgb,var(--yellow) 40%,var(--border));background:color-mix(in srgb,var(--yellow) 5%,var(--surface))}
+.cover-card .eyebrow{color:var(--yellow)}
+.cover-note{display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--yellow) 10%,transparent);color:var(--text-2);font-size:.8rem;line-height:1.45;margin:14px 0}
 
 /* ---------- builder ---------- */
 .stepper{display:flex;list-style:none;margin:0 0 20px;padding:0;gap:0}
@@ -203,7 +208,10 @@ details[open] summary .chev{transform:rotate(90deg)}
 .bdot{width:9px;height:9px;border-radius:50%;flex:none}
 .bm{font-size:.7rem;color:var(--text-3);font-weight:600}
 .grip{color:var(--text-3);display:inline-flex;touch-action:none;cursor:grab;padding:3px;margin:-3px}
-.block{touch-action:pan-y}
+/* Must out-specify [data-drag-type] below: a touch drag starts from the grip
+   (touch-action:none), but swiping anywhere else on a block has to stay a
+   normal pan so the horizontally scrollable weekly panel can be swiped. */
+.block[data-drag-type]{touch-action:pan-x pan-y}
 button,.btn,.btn-icon,.nav-item,.mk,.seg button{touch-action:manipulation}
 .block .grip{margin-left:2px}
 .block .x{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;color:var(--text-3)}
@@ -237,6 +245,7 @@ button,.btn,.btn-icon,.nav-item,.mk,.seg button{touch-action:manipulation}
 
 /* ---------- drag & drop (pointer based) ---------- */
 [data-drag-type]{touch-action:none}
+/* .block[data-drag-type] above overrides this for blocks (see builder section) */
 .todo[data-drag-type]{touch-action:pan-y}
 .todo .grip{touch-action:none;cursor:grab;padding:4px;margin:-4px}
 .drag-ghost{position:fixed;left:0;top:0;z-index:100;pointer-events:none;box-shadow:var(--shadow-lg);opacity:.95;transform:translate(-9999px,-9999px);border-color:var(--primary)!important;transition:none!important;margin:0}
@@ -338,6 +347,7 @@ const I={
   flag:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>',
   award:'<circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.89"/>',
   layers:'<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+  cover:'<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>',
   clipboard:'<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/>',
   grip:'<circle cx="9" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1.4" fill="currentColor" stroke="none"/>',
   half:'<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/>',
@@ -409,12 +419,19 @@ function defaultState(){return{
   blocks:[],using:[],template:{0:[],1:[],2:[],3:[],4:[],5:[],6:[]},
   draft:{goal:'',lastNum:2,lastUnit:'weeks',start:todayKey()},
   manual:{goal:'',start:todayKey(),n:7,rows:[]},
-  plan:null,archived:[],loose:{},todos:[],assignments:null,timer:null,theme:'light',newColor:COLORS[0],
+  plan:null,coverPlan:null,cover:{goal:'',start:todayKey(),n:7,rows:[]},
+  archived:[],loose:{},todos:[],assignments:null,timer:null,theme:'light',newColor:COLORS[0],
   reminder:'只在晚上看视频'
 };}
 let S; try{S=JSON.parse(localStorage.getItem(KEY))}catch{}
-S=Object.assign(defaultState(),S||{});
-if(!S.reminder)S.reminder='只在晚上看视频';
+// Single place to normalise a loaded/merged state (localStorage or cloud gist),
+// so older data without the cover-plan fields still gets usable defaults.
+function adoptState(o){
+  S=Object.assign(defaultState(),o||{});
+  S.cover=Object.assign({goal:'',start:todayKey(),n:7,rows:[]},S.cover||{});
+  if(!S.reminder)S.reminder='只在晚上看视频';
+}
+adoptState(S);
 const save=()=>{localStorage.setItem(KEY,JSON.stringify(S));cloudSync();};
 const UI={view:'today',step:1,mode:'code'};
 
@@ -489,10 +506,27 @@ async function cloudCreateGist(){
 
 /* ================= DATA HELPERS ================= */
 const newTask=(title,minutes,date,color,extra=false)=>({id:uid(),title,minutes:+minutes||0,date,color,extra,status:'none',timeUsed:0,completedAt:null,note:''});
-function* activeTasks(){ if(S.plan) for(const d of S.plan.days) for(const t of d.tasks) yield t; for(const k in S.loose) for(const t of S.loose[k]) yield t; }
-function* allTasks(){ yield* activeTasks(); for(const t of (S.assignments||[])) yield t; for(const p of S.archived) for(const d of p.days) for(const t of d.tasks) yield t; }
+// A "cover plan" is a temporary short plan (max 30 days). Inside its date range
+// it replaces the original plan's tasks; the original tasks are only hidden,
+// never deleted, so they come back as soon as the cover plan is gone.
+const COVER_MAX_DAYS=30;
+const isCovered=k=>!!(S.coverPlan&&k>=S.coverPlan.start&&k<=S.coverPlan.end);
+const coverTasksOn=k=>isCovered(k)?(S.coverPlan.days.find(d=>d.date===k)?.tasks||[]):[];
+function* activeTasks(){
+  if(S.plan) for(const d of S.plan.days) for(const t of d.tasks) if(!isCovered(d.date)) yield t;
+  if(S.coverPlan) for(const d of S.coverPlan.days) for(const t of d.tasks) yield t;
+  for(const k in S.loose) for(const t of S.loose[k]) yield t;
+}
+function* allTasks(){
+  yield* activeTasks();
+  // Hidden original tasks stay reachable for an open modal / running timer,
+  // but are not part of the rollover check above.
+  if(S.plan&&S.coverPlan) for(const d of S.plan.days) for(const t of d.tasks) if(isCovered(d.date)) yield t;
+  for(const t of (S.assignments||[])) yield t;
+  for(const p of S.archived) for(const d of p.days) for(const t of d.tasks) yield t;
+}
 function findTask(id){ for(const t of allTasks()) if(t.id===id) return t; return null; }
-const tasksOn=k=>[...(S.plan?.days.find(d=>d.date===k)?.tasks||[]),...(S.loose[k]||[])];
+const tasksOn=k=>[...(isCovered(k)?coverTasksOn(k):(S.plan?.days.find(d=>d.date===k)?.tasks||[])),...(S.loose[k]||[])];
 const blockById=id=>S.blocks.find(b=>b.id===id);
 function ensureAssignments(){
   const t=todayKey();
@@ -536,11 +570,15 @@ function planProgress(p){let total=0,done=0;p.days.forEach(d=>d.tasks.forEach(t=
 /* ================= ROLLOVER / ARCHIVE ================= */
 function rollover(){
   const t=todayKey();let changed=false;
+  // An expired cover plan ends by itself: the original plan is visible again
+  // on every day outside the cover range. Keep the result in the archive.
+  if(S.coverPlan&&t>S.coverPlan.end){archiveCover();changed=true;toast('Cover plan finished — your original plan is back');}
   for(const task of activeTasks()) if(task.date<t&&task.status==='none'){task.status='red';changed=true;}
   if(S.plan&&t>S.plan.end){archivePlan();changed=true;toast('Your plan is finished and stored in your account');}
   if(changed)save();
 }
 function archivePlan(){const p=S.plan;if(!p)return;p.finishedAt=Date.now();p.result=planProgress(p);S.archived.unshift(p);S.plan=null;}
+function archiveCover(){const p=S.coverPlan;if(!p)return;p.finishedAt=Date.now();p.result=planProgress(p);S.archived.unshift(p);S.coverPlan=null;}
 
 /* ================= TIMER ================= */
 function toggleTimer(id){
@@ -621,16 +659,20 @@ const emptyState=(ic,title,text,btn='')=>`<div class="empty"><div class="eic">${
 /* ---------- TODAY ---------- */
 function renderToday(){
   const k=todayKey(),tasks=tasksOn(k),done=completionsByDay()[k]||0;
-  const p=S.plan,prog=p?planProgress(p):null;
-  let html=pageHead(fmtLong(k),p?`Goal: ${esc(p.goal)}`:'No active plan yet',p?'':`<button class="btn btn-primary" data-action="nav" data-view="create">${icon('plus',15)} Create a plan</button>`,'Today');
+  const p=S.plan,cp=S.coverPlan,cov=isCovered(k),activePlan=cov?cp:p,prog=activePlan?planProgress(activePlan):null;
+  const goal=cov?cp.goal:p?.goal;
+  const sub=goal?`${cov?'Cover plan':'Goal'}: ${esc(goal)}`:cp?`Cover plan “${esc(cp.goal)}” starts ${fmtDate(cp.start)}`:'No active plan yet';
+  const actions=(p||cp?`<button class="btn" data-action="cover-open">${icon('cover',15)} ${cp?'Edit cover':'Cover plan'}</button>`:'')+
+    (p?'':`<button class="btn btn-primary" data-action="nav" data-view="create">${icon('plus',15)} Create a plan</button>`);
+  let html=pageHead(fmtLong(k),sub,actions,'Today');
   html+=`<div class="stats">
     ${stat('clock',fmtDur(secondsOn(k)),'Time used today','today-time')}
     ${stat('check-square',`${done} <small>/ ${tasks.length}</small>`,'Task(s) completed')}
     ${stat('zap',`${streak()} <small>day${streak()===1?'':'s'}</small>`,'Current streak')}
-    ${p?stat('trend',`${prog.pct}%`,`Plan progress · ${prog.done}/${prog.total} tasks`,'',`<div class="progress" style="margin-top:8px"><i style="width:${prog.pct}%"></i></div>`):stat('flag','—','Plan progress')}
+    ${prog?stat('trend',`${prog.pct}%`,`Plan progress · ${prog.done}/${prog.total} tasks`,'',`<div class="progress" style="margin-top:8px"><i style="width:${prog.pct}%"></i></div>`):stat('flag','—','Plan progress')}
   </div>`;
-  html+=`<div class="card"><div class="card-head"><div class="row"><h2>Today's tasks</h2><span class="pill">${tasks.length}</span></div><span class="small muted">Press play to focus, then mark the task</span></div><div class="dz tasklist" data-zone="today" style="min-height:0;padding:${tasks.length?'0':'8px'};border:${tasks.length?'0':''};background:transparent">`;
-  if(!tasks.length)html+=emptyState('inbox','Nothing scheduled',p?'Rest today, add an extra task below, or drag a to-do block here.':'Create a plan to see your daily tasks here.',p?'':`<button class="btn btn-primary sm" data-action="nav" data-view="create">Create a plan</button>`);
+  html+=`<div class="card"><div class="card-head"><div class="row"><h2>Today's tasks</h2><span class="pill">${tasks.length}</span>${cov?'<span class="cover-tag">COVER PLAN</span>':''}</div><span class="small muted">Press play to focus, then mark the task</span></div><div class="dz tasklist" data-zone="today" style="min-height:0;padding:${tasks.length?'0':'8px'};border:${tasks.length?'0':''};background:transparent">`;
+  if(!tasks.length)html+=emptyState('inbox','Nothing scheduled',(p||cp)?'Rest today, add an extra task below, or drag a to-do block here.':'Create a plan to see your daily tasks here.',(p||cp)?'':`<button class="btn btn-primary sm" data-action="nav" data-view="create">Create a plan</button>`);
   tasks.forEach(t=>{const running=S.timer?.taskId===t.id;const used=(t.timeUsed||0)+(running?runningSec():0);
     html+=`<div class="task s-${t.status}"><button class="focus-btn ${running?'running':''}" data-action="timer" data-id="${t.id}" title="${running?'Stop focus':'Start focus'}">${icon(running?'pause':'play',13)}</button>
       <div class="task-body"><div class="task-title">${esc(t.title)}${t.extra?'<span class="tag">Extra</span>':''}</div>
@@ -643,27 +685,52 @@ function renderToday(){
 }
 
 /* ---------- PLAN TABLE ---------- */
-function renderTable(plan,ro,includeLoose){
+function renderTable(plan,ro,includeLoose,applyCover){
   const cells=[];for(let i=0;i<wdMon(plan.start);i++)cells.push(null);
   plan.days.forEach(d=>cells.push(d));while(cells.length%7)cells.push(null);
   const today=todayKey();
   let html=`<div class="cal-wrap"><div class="cal"><div class="cal-head">${DAYS.map(d=>`<div>${d}</div>`).join('')}</div><div class="cal-grid">`;
   cells.forEach(d=>{if(!d){html+=`<div class="cell blank"></div>`;return;}
-    const list=[...d.tasks,...(includeLoose?(S.loose[d.date]||[]):[])];const dn=list.filter(isDone).length;const dt=parseKey(d.date);
+    // applyCover is only used for the live plan table (never for a preview or
+    // an archived plan), where covered days show the temporary cover plan.
+    const cov=!!(applyCover&&isCovered(d.date));
+    const dayTasks=cov?coverTasksOn(d.date):d.tasks;
+    const list=[...dayTasks,...(includeLoose?(S.loose[d.date]||[]):[])];const dn=list.filter(isDone).length;const dt=parseKey(d.date);
     const studied=secondsOn(d.date);const showTime=d.date<=today||studied>0;const liveToday=d.date===today;
-    html+=`<div class="cell ${d.date===today?'today':''} ${d.date<today?'past':''}"><div class="cell-head"><span class="dnum">${dt.getDate()}</span><span>${dt.toLocaleDateString(undefined,{month:'short'})}</span>${list.length?`<span class="dcount ${dn===list.length?'all':''}">${dn}/${list.length}</span>`:''}</div>${showTime?`<div class="cell-time ${studied||liveToday?'':'zero'}">${icon('clock',11)}<span${liveToday?` data-live="day-time" data-date="${d.date}"`:''}>${fmtDurShort(studied)}</span></div>`:''}<div class="chips">${list.map(t=>chip(t,ro)).join('')||'<span class="rest">Rest day</span>'}</div></div>`;});
+    html+=`<div class="cell ${cov?'covered':''} ${d.date===today?'today':''} ${d.date<today?'past':''}"><div class="cell-head"><span class="dnum">${dt.getDate()}</span><span>${dt.toLocaleDateString(undefined,{month:'short'})}</span>${cov?'<span class="cover-tag">COVER</span>':''}${list.length?`<span class="dcount ${dn===list.length?'all':''}">${dn}/${list.length}</span>`:''}</div>${showTime?`<div class="cell-time ${studied||liveToday?'':'zero'}">${icon('clock',11)}<span${liveToday?` data-live="day-time" data-date="${d.date}"`:''}>${fmtDurShort(studied)}</span></div>`:''}<div class="chips">${list.map(t=>chip(t,ro)).join('')||'<span class="rest">Rest day</span>'}</div></div>`;});
   return html+`</div></div></div>`;
 }
 const chip=(t,ro)=>`<button class="chip s-${t.status} ${t.extra?'extra':''}" ${ro?'disabled':`data-action="open-task" data-id="${t.id}"`} title="${esc(t.title)}"><i class="sdot"></i><span>${esc(t.title)}</span></button>`;
 const legend=`<div class="legend">${Object.entries(STATUS).map(([s,l])=>`<span class="s-${s}"><i class="sdot"></i>${l}</span>`).join('')}</div>`;
 function renderPlan(){
-  const p=S.plan;
-  if(!p){$('#view-plan').innerHTML=pageHead('Plan table','Your active plan will appear here as a calendar','', 'Plan')+`<div class="card">${emptyState('grid','No active plan table','Create one with the 3-step block builder or by inserting a table directly.',`<div class="row" style="justify-content:center"><button class="btn btn-primary" data-action="nav" data-view="create">${icon('plus',15)} Create a plan</button>${S.archived.length?`<button class="btn" data-action="open-archive">${icon('archive',15)} Previous plans (${S.archived.length})</button>`:''}</div>`)}</div>`;return;}
-  const pr=planProgress(p);
-  $('#view-plan').innerHTML=pageHead('Plan table',`${fmtDate(p.start)} – ${fmtDate(p.end)} · ${p.days.length} days`,`<button class="btn" data-action="finish-plan">${icon('flag',15)} Finish plan</button><button class="btn danger" data-action="delete-plan">${icon('trash',15)} Delete</button>`,'Plan')+
-  `<div class="card goal-card"><div class="eyebrow">Goal</div><div class="goal">${esc(p.goal)}</div><div class="range">${pr.done} of ${pr.total} tasks finished · ${pr.pct}% · <span data-live="plan-time">${fmtDurShort(planSeconds(p))}</span> studied</div><div class="progress"><i style="width:${pr.pct}%"></i></div></div>
-   <div class="card"><div class="card-head">${legend}<span class="small muted">${icon('info',13)} Click a task to mark it</span></div>${renderTable(p,false,true)}
-   <p class="small muted" style="margin-top:14px">Missed tasks turn red automatically at the end of the day. Finish them later to cover them blue.</p></div>`;
+  const p=S.plan,cp=S.coverPlan;
+  const coverBtn=`<button class="btn" data-action="cover-open">${icon('cover',15)} ${cp?'Edit cover':'Cover plan'}</button>`;
+  const actions=(p?`<button class="btn" data-action="finish-plan">${icon('flag',15)} Finish plan</button><button class="btn danger" data-action="delete-plan">${icon('trash',15)} Delete</button>`:'')+coverBtn;
+  if(!p&&!cp){
+    $('#view-plan').innerHTML=pageHead('Plan table','Your active plan will appear here as a calendar',actions,'Plan')+`<div class="card">${emptyState('grid','No active plan table','Create one with the 3-step block builder or by inserting a table directly, or add a short cover plan.',`<div class="row" style="justify-content:center"><button class="btn btn-primary" data-action="nav" data-view="create">${icon('plus',15)} Create a plan</button>${S.archived.length?`<button class="btn" data-action="open-archive">${icon('archive',15)} Previous plans (${S.archived.length})</button>`:''}</div>`)}</div>`;return;
+  }
+  let sub=p?`${fmtDate(p.start)} – ${fmtDate(p.end)} · ${p.days.length} days`:`Cover plan only · ${fmtDate(cp.start)} – ${fmtDate(cp.end)}`;
+  if(p&&cp&&(cp.start<p.start||cp.end>p.end))sub+=` · cover ${fmtDate(cp.start)} – ${fmtDate(cp.end)}`;
+  let html=pageHead('Plan table',sub,actions,'Plan');
+  if(cp){
+    const cpr=planProgress(cp),ended=todayKey()>cp.end;
+    html+=`<div class="card cover-card"><div class="row between" style="align-items:flex-start;gap:12px;flex-wrap:wrap">
+      <div style="min-width:0"><div class="eyebrow">${icon('cover',12)} Temporary cover plan${ended?' · ended':''}</div>
+      <h2 style="margin:4px 0 2px">${esc(cp.goal)}</h2>
+      <div class="small muted">${fmtDate(cp.start)} – ${fmtDate(cp.end)} · ${cp.days.length} day${cp.days.length===1?'':'s'} · ${cpr.done}/${cpr.total} tasks (${cpr.pct}%)</div></div>
+      <button class="btn sm danger" data-action="cover-remove">${icon('undo',14)} Remove cover</button></div>
+      <div class="progress" style="margin-top:12px"><i style="width:${cpr.pct}%;background:var(--yellow)"></i></div>
+      <p class="xs muted" style="margin-top:10px">Inside this date range the cover plan replaces the original plan's tasks. The original tasks are only hidden — remove the cover plan (or let its days pass) and they are visible again with their progress intact.</p></div>`;
+  }
+  if(p){
+    const pr=planProgress(p);
+    html+=`<div class="card goal-card"><div class="eyebrow">Goal</div><div class="goal">${esc(p.goal)}</div><div class="range">${pr.done} of ${pr.total} tasks finished · ${pr.pct}% · <span data-live="plan-time">${fmtDurShort(planSeconds(p))}</span> studied</div><div class="progress"><i style="width:${pr.pct}%"></i></div></div>`;
+  }
+  const days=unionPlanDays(p,cp),tablePlan={start:days[0].date,end:days[days.length-1].date,days};
+  html+=`<div class="card"><div class="card-head">${legend}<span class="small muted">${icon('info',13)} Click a task to mark it</span></div>${renderTable(tablePlan,false,true,true)}
+   ${cp?`<p class="small muted" style="margin-top:12px">Days marked <b>COVER</b> come from the temporary cover plan instead of the original plan.</p>`:''}
+   <p class="small muted" style="margin-top:8px">Missed tasks turn red automatically at the end of the day. Finish them later to cover them blue.</p></div>`;
+  $('#view-plan').innerHTML=html;
 }
 function openTaskModal(id){
   const t=findTask(id);if(!t)return;const running=S.timer?.taskId===id;
@@ -676,6 +743,10 @@ function openTaskModal(id){
 /* ---------- CREATE ---------- */
 function blockHTML(b,type,extra='',attrs=''){return `<div class="block ${type==='day'?'mini':''}" data-drag-type="${type}" data-id="${b.id}" ${attrs}><i class="bdot" style="background:${b.color}"></i><span class="bt">${esc(b.title)}</span>${b.minutes?`<span class="bm">${b.minutes}m</span>`:''}${extra}<span class="grip">${icon('grip',type==='day'?12:14)}</span></div>`;}
 function renderCreate(){
+  // Re-rendering this view after a drop used to reset the horizontally scrolled
+  // weekly panel back to Monday, which made the blocks the user had just scrolled
+  // to look (and feel) unreachable. Keep its scroll offset across re-renders.
+  const weekScroll=$('.week',$('#view-create'))?.scrollLeft||0;
   const d=S.draft;
   let html=pageHead('Create a plan table','Build it from task blocks in three steps, or insert a table directly.',`<div class="seg"><button class="${UI.mode==='code'?'active':''}" data-action="mode" data-mode="code">${icon('layers',15)} Block builder</button><button class="${UI.mode==='manual'?'active':''}" data-action="mode" data-mode="manual">${icon('clipboard',15)} Insert a table</button></div>`,'Create');
   if(UI.mode==='code'){
@@ -712,6 +783,7 @@ function renderCreate(){
       <div class="foot"><span></span><button class="btn btn-primary" data-action="manual-create">${icon('check',15)} Create plan table</button></div></div>`;
   }
   $('#view-create').innerHTML=html;
+  const w=$('.week',$('#view-create'));if(w)w.scrollLeft=weekScroll;
 }
 function generateFromTemplate(){
   const d=S.draft,total=Math.max(1,(d.lastUnit==='weeks'?7:1)*(+d.lastNum||1)),days=[];
@@ -730,6 +802,80 @@ function createPlan(p){
   if(S.plan&&!confirm('You already have an active plan. Archive it and start this new one?'))return;
   if(S.plan)archivePlan();
   S.plan=p;rollover();save();UI.step=1;show('plan');toast('Plan table created');
+}
+
+/* ---------- COVER PLAN (temporary short plan, max 30 days) ---------- */
+function coverDraft(){
+  const c=S.cover||{};
+  return{
+    goal:c.goal||'',
+    start:/^\d{4}-\d{2}-\d{2}$/.test(c.start||'')?c.start:todayKey(),
+    n:Math.min(COVER_MAX_DAYS,Math.max(1,+c.n||1)),
+    rows:Array.isArray(c.rows)?c.rows:[]
+  };
+}
+function openCover(){
+  // Prefill from the active cover plan so the button also works as "edit".
+  if(S.coverPlan){
+    const p=S.coverPlan;
+    S.cover={goal:p.goal,start:p.start,n:Math.min(COVER_MAX_DAYS,p.days.length),
+      rows:p.days.map(d=>d.tasks.map(t=>t.minutes?`${t.title} | ${t.minutes}`:t.title).join('\n'))};
+    save();
+  }
+  renderCoverModal();
+  setTimeout(()=>$('[data-cover="goal"]')?.focus(),50);
+}
+function renderCoverModal(){
+  const c=coverDraft(),n=c.n,start=c.start,end=addDays(start,n-1);
+  const grid=Array.from({length:n},(_,i)=>{const k=addDays(start,i);
+    return `<div class="mday"><label>${DAYS[wdMon(k)]} · ${fmtDate(k)}</label><textarea data-cover-row="${i}" placeholder="One task per line">${esc(c.rows[i]||'')}</textarea></div>`;}).join('');
+  const orig=S.plan?`Your original plan runs ${fmtDate(S.plan.start)} – ${fmtDate(S.plan.end)}.`:'There is no original plan yet, so this will simply be your plan for those days.';
+  openModal(`<div class="row between" style="align-items:flex-start"><div><h2>${S.coverPlan?'Edit':'Make a'} cover plan</h2>
+    <p class="sub" style="margin-top:4px">A temporary short-term plan (up to ${COVER_MAX_DAYS} days) that overrides the original plan for a chosen date range.</p></div>
+    <button class="btn-icon" data-action="close-modal">${icon('x')}</button></div>
+    <div class="row mt" style="gap:14px;align-items:flex-end">
+      <div class="field" style="flex:3"><label class="f">Goal of the cover plan</label><input class="input" data-cover="goal" value="${esc(c.goal)}" placeholder="e.g. Exam week revision"></div>
+      <div class="field"><label class="f">Start date</label><input class="input" type="date" data-cover="start" value="${start}"></div>
+      <div class="field" style="max-width:120px"><label class="f">Days (max ${COVER_MAX_DAYS})</label><input class="input" type="number" min="1" max="${COVER_MAX_DAYS}" data-cover="n" value="${n}"></div>
+    </div>
+    <div class="cover-note">${icon('info',14)}<span><b>${fmtDate(start)} – ${fmtDate(end)}</b> · ${n} day${n===1?'':'s'}. The original plan's tasks inside this range are hidden, not deleted — they reappear when the cover plan is removed or its days are over. ${esc(orig)}</span></div>
+    <div class="row between" style="margin-bottom:8px;gap:10px"><h3>Tasks for each day</h3><button class="btn sm" data-action="cover-copy" ${S.plan?'':'disabled'} title="Start from the original plan's tasks">${icon('clipboard',14)} Copy original days</button></div>
+    <p class="xs muted" style="margin-bottom:6px">One task per line, optionally <code>Task | minutes</code>. Leave a day empty for a rest day.</p>
+    <div class="mgrid">${grid}</div>
+    <div class="foot"><span class="small muted">${S.coverPlan?'Saving replaces the current cover plan; its result is kept in Previous plans.':'Only the chosen range is overridden.'}</span>
+    <div class="row" style="gap:8px"><button class="btn" data-action="close-modal">Cancel</button><button class="btn btn-primary" data-action="cover-create">${icon('check',15)} ${S.coverPlan?'Update':'Create'} cover plan</button></div></div>`,true);
+}
+function buildCoverPlan(){
+  const c=coverDraft(),start=c.start,n=c.n,days=[];
+  for(let i=0;i<n;i++){
+    const k=addDays(start,i);
+    const tasks=String(c.rows[i]||'').split('\n').map(parseTaskLine).filter(Boolean)
+      .map(x=>newTask(x.title,x.minutes,k,'#d97706'));
+    days.push({date:k,tasks});
+  }
+  return{id:uid(),goal:c.goal.trim(),start,end:addDays(start,n-1),days,createdAt:Date.now(),mode:'cover'};
+}
+function createCover(){
+  const p=buildCoverPlan();
+  if(!p.goal){toast('Please set a goal first');return;}
+  if(!p.days.some(d=>d.tasks.length)){toast('Add at least one task');return;}
+  if(p.end<todayKey()){toast('That date range has already ended — pick a later start or more days');return;}
+  if(S.coverPlan&&!confirm('Replace the current cover plan? Its result will be kept in Previous plans.'))return;
+  if(S.coverPlan)archiveCover();
+  S.coverPlan=p;rollover();save();closeModal();renderAll();
+  toast(`Cover plan set for ${fmtDate(p.start)} – ${fmtDate(p.end)} — original plan hidden in that range`);
+}
+// One calendar for the live plan table: all days of the original plan plus every
+// day of the cover plan (cover tasks win on the days they replace). This keeps
+// cover days visible even when they lie outside the original plan's range.
+function unionPlanDays(p,cp){
+  const map=new Map();
+  if(p)for(const d of p.days)map.set(d.date,{date:d.date,tasks:d.tasks});
+  if(cp)for(const d of cp.days)map.set(d.date,{date:d.date,tasks:d.tasks});
+  if(!map.size)return [];
+  const keys=[...map.keys()].sort(),start=keys[0],end=keys[keys.length-1],days=[];
+  for(let k=start;k<=end&&days.length<400;k=addDays(k,1))days.push(map.get(k)||{date:k,tasks:[]});
+  return days;
 }
 
 /* ---------- TODO ---------- */
@@ -806,7 +952,7 @@ function renderAssignments() {
 }
 function openArchive(){
   openModal(`<div class="row between" style="margin-bottom:16px"><h2>Previous plan tables</h2><button class="btn-icon" data-action="close-modal">${icon('x')}</button></div>
-  ${S.archived.map(p=>`<div class="archive-item"><div style="min-width:0"><b>${esc(p.goal)}</b><div class="xs muted">${fmtDate(p.start)} – ${fmtDate(p.end)} · ${p.days.length} days${p.result?` · ${p.result.done}/${p.result.total} tasks (${p.result.pct}%)`:''}</div></div><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn sm" data-action="view-archived" data-id="${p.id}">${icon('eye',14)} View</button><button class="btn-icon sm" data-action="del-archived" data-id="${p.id}">${icon('trash',14)}</button></div></div>`).join('')||emptyState('archive','No finished plan tables yet','Plans are stored here automatically when they end.')}`);
+  ${S.archived.map(p=>`<div class="archive-item"><div style="min-width:0"><b>${esc(p.goal)}</b>${p.mode==='cover'?'<span class="tag">Cover</span>':''}<div class="xs muted">${fmtDate(p.start)} – ${fmtDate(p.end)} · ${p.days.length} days${p.result?` · ${p.result.done}/${p.result.total} tasks (${p.result.pct}%)`:''}</div></div><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn sm" data-action="view-archived" data-id="${p.id}">${icon('eye',14)} View</button><button class="btn-icon sm" data-action="del-archived" data-id="${p.id}">${icon('trash',14)}</button></div></div>`).join('')||emptyState('archive','No finished plan tables yet','Plans are stored here automatically when they end.')}`);
 }
 function viewArchived(id){const p=S.archived.find(x=>x.id===id);if(!p)return;const pr=planProgress(p);
   openModal(`<div class="row between"><button class="btn sm btn-ghost" data-action="open-archive">${icon('arrow-left',14)} Back</button><button class="btn-icon" data-action="close-modal">${icon('x')}</button></div><div class="goal-card" style="padding:12px 0 18px"><div class="eyebrow">Goal</div><div class="goal">${esc(p.goal)}</div><div class="range">${fmtDate(p.start)} – ${fmtDate(p.end)} · ${pr.done}/${pr.total} tasks (${pr.pct}%) · ${fmtDurShort(planSeconds(p))} studied</div><div class="progress"><i style="width:${pr.pct}%"></i></div></div><div style="margin-bottom:10px">${legend}</div>${renderTable(p,true)}`,true);}
@@ -866,7 +1012,7 @@ window.addEventListener('pagehide',()=>{if(S.timer){stopTimer('hidden');save();}
 
 /* ================= DRAG & DROP (pointer based — mouse, touch and pen) ================= */
 const DRAG={src:null,active:false,ghost:null,zone:null,pid:null,x:0,y:0,sx:0,sy:0,ox:0,oy:0,raf:0};
-let suppressClick=false;
+let suppressClick=false,clickGuardToken=0;
 document.addEventListener('dragstart',e=>e.preventDefault());
 document.addEventListener('click',e=>{if(suppressClick){e.stopPropagation();e.preventDefault();suppressClick=false;}},true);
 function canDrop(zone,type){return zone==='today'?type==='todo':(zone==='using'||zone==='day')&&type!=='todo';}
@@ -874,7 +1020,7 @@ function canDrop(zone,type){return zone==='today'?type==='todo':(zone==='using'|
 // Any leftover drag state (ghost node, body class, click suppression) would make
 // the whole page feel dead, so always wipe it before a new interaction starts.
 function resetDragArtifacts(){
-  suppressClick=false;
+  suppressClick=false;clickGuardToken++; // invalidate a pending guard-release timer
   cancelAnimationFrame(DRAG.raf);
   document.querySelectorAll('.drag-ghost').forEach(g=>g.remove());
   document.querySelectorAll('.dragging').forEach(g=>g.classList.remove('dragging'));
@@ -884,8 +1030,14 @@ function resetDragArtifacts(){
 }
 document.addEventListener('pointerdown',e=>{
   if(e.pointerType==='mouse'&&e.button!==0)return;
-  if(DRAG.src&&e.pointerId!==DRAG.pid)resetDragArtifacts(); // stale drag from a lost pointerup
-  suppressClick=false;
+  // A pointerup can be lost (released outside the window, cancelled by a swipe,
+  // element re-rendered mid-drag). Mouse pointer ids never change, so the old
+  // "different pointerId" check left that drag alive together with its pointer
+  // capture: the browser then retargeted the NEXT pointerdown to the old block,
+  // which is why some blocks suddenly could not be dragged. A fresh press always
+  // starts from a completely clean state.
+  if(DRAG.src)resetDragArtifacts();
+  suppressClick=false;clickGuardToken++;
   const el=e.target.closest('[data-drag-type]');if(!el)return;
   const ctl=e.target.closest('button,input,textarea,select,label,a,summary');if(ctl&&ctl!==el)return;
   // On touch/pen a drag must start from the grip, otherwise normal taps and page
@@ -912,7 +1064,11 @@ function startDrag(e){
   g.querySelectorAll('.x').forEach(x=>x.remove());g.style.width=Math.min(r.width,260)+'px';
   document.body.appendChild(g);DRAG.ghost=g;
   el.classList.add('dragging');document.body.classList.add('is-dragging');
-  try{el.setPointerCapture(DRAG.pid)}catch{}
+  // Deliberately no setPointerCapture(): the listeners live on document/window,
+  // so events keep arriving anywhere the pointer goes (touch gets the browser's
+  // implicit capture). Capturing on the source element was fragile — a lost
+  // pointerup left the capture attached to that (often re-rendered) element and
+  // every later pointerdown was retargeted to it, making blocks undraggable.
   const loop=()=>{if(!DRAG.active)return;
     if(DRAG.y<70)window.scrollBy(0,-10);else if(DRAG.y>innerHeight-70)window.scrollBy(0,10);
     const w=$('.week');
@@ -922,24 +1078,26 @@ function startDrag(e){
 }
 function positionGhost(){if(DRAG.ghost)DRAG.ghost.style.transform=`translate(${DRAG.x-DRAG.ox}px,${DRAG.y-DRAG.oy}px)`;}
 function updateZone(){
+  if(!DRAG.active||!DRAG.src)return; // a queued frame after a reset must not throw
   const under=document.elementFromPoint(DRAG.x,DRAG.y);
   let z=under?under.closest('.dz'):null;
   if(z&&!canDrop(z.dataset.zone,DRAG.src.dataset.dragType))z=null;
   if(z!==DRAG.zone){DRAG.zone?.classList.remove('over');DRAG.zone=z;z?.classList.add('over');}
 }
 function finishDrag(drop){
-  const {src,zone,active,pid}=DRAG;
+  const {src,zone,active}=DRAG;
   cancelAnimationFrame(DRAG.raf);
   DRAG.ghost?.remove();
   document.querySelectorAll('.drag-ghost').forEach(g=>g.remove());
   src?.classList.remove('dragging');zone?.classList.remove('over');document.body.classList.remove('is-dragging');
-  try{src?.releasePointerCapture(pid)}catch{}
   Object.assign(DRAG,{src:null,active:false,ghost:null,zone:null,pid:null,raf:0});
   if(active){
     if(drop&&zone)handleDrop(zone,{type:src.dataset.dragType,id:src.dataset.id,day:src.dataset.day});
-    // Release the click guard shortly after the drop, and never leave it stuck.
-    setTimeout(()=>suppressClick=false,80);
-  } else suppressClick=false;
+    // Release the click guard shortly after the drop. The token makes sure a
+    // stale timer cannot clear the guard of a drag that started in the meantime.
+    const token=++clickGuardToken;
+    setTimeout(()=>{if(token===clickGuardToken)suppressClick=false;},80);
+  } else {suppressClick=false;clickGuardToken++;}
 }
 function handleDrop(z,{type,id,day}){
   const zone=z.dataset.zone;
@@ -978,8 +1136,12 @@ document.addEventListener('click',e=>{
     case 'timer':toggleTimer(id);if($('#modal').classList.contains('on'))openTaskModal(id);break;
     case 'open-task':openTaskModal(id);break;
     case 'del-task':{for(const k in S.loose)S.loose[k]=S.loose[k].filter(t=>t.id!==id);if(S.timer?.taskId===id)stopTimer();save();closeModal();renderAll();break;}
-    case 'finish-plan':if(confirm('Finish this plan now and store it in your account?')){for(const t of activeTasks())if(t.status==='none')t.status='red';archivePlan();save();renderAll();toast('Plan stored in your account');}break;
+    case 'finish-plan':if(confirm('Finish this plan now and store it in your account?')){const coverIds=new Set((S.coverPlan?.days||[]).flatMap(d=>d.tasks.map(t=>t.id)));for(const t of activeTasks())if(t.status==='none'&&!coverIds.has(t.id))t.status='red';archivePlan();save();renderAll();toast('Plan stored in your account');}break;
     case 'delete-plan':if(confirm('Delete this plan table permanently? It will not be stored.')){S.plan=null;save();renderAll();}break;
+    case 'cover-open':openCover();break;
+    case 'cover-create':createCover();break;
+    case 'cover-copy':{const c=coverDraft();const rows=Array.from({length:c.n},(_,i)=>{const k=addDays(c.start,i);const d=S.plan?.days.find(x=>x.date===k);return d?d.tasks.map(t=>t.minutes?`${t.title} | ${t.minutes}`:t.title).join('\n'):'';});S.cover={goal:S.cover.goal||'',start:c.start,n:c.n,rows};save();renderCoverModal();toast('Copied the original tasks — edit them below');break;}
+    case 'cover-remove':if(confirm('Remove the cover plan? Your original plan will be visible again for those dates.')){archiveCover();rollover();save();renderAll();toast('Cover plan removed — original plan restored');}break;
     case 'todo-today':todoToToday(id);break;
     case 'todo-done':{const t=S.todos.find(x=>x.id===id);if(t)t.done=true;save();renderTodo();break;}
     case 'todo-del':S.todos=S.todos.filter(x=>x.id!==id);save();renderTodo();break;
@@ -993,7 +1155,7 @@ document.addEventListener('click',e=>{
     case 'reset-all':if(confirm('Delete ALL data (plans, stats, blocks)? This cannot be undone.')){localStorage.removeItem(KEY);location.reload();}break;
     case 'cloud-save-cfg':{CLOUD.token=$('#cloudToken').value.trim();CLOUD.gistId=$('#cloudGistId').value.trim();saveCloudCfg();renderAccount();toast(cloudConfigured()?'Cloud sync enabled':'Settings saved');break;}
     case 'cloud-create-gist':CLOUD.token=$('#cloudToken').value.trim();saveCloudCfg();cloudCreateGist();break;
-    case 'cloud-pull':{if(!cloudConfigured()){toast('Set up your token and gist ID first');return;}(async()=>{const remote=await cloudLoad();if(remote){S=Object.assign(defaultState(),remote);if(!S.reminder)S.reminder='只在晚上看视频';localStorage.setItem(KEY,JSON.stringify(S));renderAll();renderAccount();toast('Pulled latest from cloud');}else toast('Nothing found in that gist yet');})();break;}
+    case 'cloud-pull':{if(!cloudConfigured()){toast('Set up your token and gist ID first');return;}(async()=>{const remote=await cloudLoad();if(remote){adoptState(remote);localStorage.setItem(KEY,JSON.stringify(S));renderAll();renderAccount();toast('Pulled latest from cloud');}else toast('Nothing found in that gist yet');})();break;}
     case 'save-reminder':{const val=($('#reminderInput')?.value||'').trim();S.reminder=val||'只在晚上看视频';save();renderReminder();toast('Reminder saved');break;}
     case 'reset-reminder':{S.reminder='只在晚上看视频';save();renderAccount();renderReminder();toast('Reminder reset to default');break;}
   }
@@ -1009,7 +1171,21 @@ document.addEventListener('input',e=>{
   if(el.dataset.draft){S.draft[el.dataset.draft]=el.type==='number'?+el.value:el.value;save();}
   if(el.dataset.manual){S.manual[el.dataset.manual]=el.type==='number'?+el.value:el.value;save();}
   if(el.dataset.manualRow!==undefined){S.manual.rows[+el.dataset.manualRow]=el.value;save();}
+  if(el.dataset.cover){S.cover[el.dataset.cover]=el.type==='number'?+el.value:el.value;save();}
+  if(el.dataset.coverRow!==undefined){S.cover.rows[+el.dataset.coverRow]=el.value;save();}
   if(el.dataset.account==='reminder'||el.id==='reminderInput'){S.reminder=el.value;save();renderReminder();}
+});
+// Changing the range of a cover plan rebuilds its per-day grid, and enforces
+// the 30-day cap even if the number was pasted in.
+document.addEventListener('change',e=>{
+  const el=e.target;
+  if(el.dataset.cover==='n'){
+    const n=Math.min(COVER_MAX_DAYS,Math.max(1,+el.value||1));
+    if(+el.value>COVER_MAX_DAYS)toast(`Cover plans are limited to ${COVER_MAX_DAYS} days`);
+    S.cover.n=n;save();renderCoverModal();
+  } else if(el.dataset.cover==='start'){
+    S.cover.start=el.value;save();renderCoverModal();
+  }
 });
 // Step 1: clicking a block in the block area copies it into the using area
 document.addEventListener('click',e=>{const b=e.target.closest('.block[data-drag-type="block"]');if(b&&!e.target.closest('[data-action]'))addToUsing(b.dataset.id);});
@@ -1024,7 +1200,7 @@ function applyTheme(){document.documentElement.dataset.theme=S.theme;}
 (async function init(){
   if(cloudConfigured()){
     const remote=await cloudLoad();
-    if(remote){S=Object.assign(defaultState(),remote);if(!S.reminder)S.reminder='只在晚上看视频';localStorage.setItem(KEY,JSON.stringify(S));}
+    if(remote){adoptState(remote);localStorage.setItem(KEY,JSON.stringify(S));}
   }
   // A focus session should only ever be live while this page is open. If a
   // stale running timer survived a crash/shutdown where pagehide never fired,
