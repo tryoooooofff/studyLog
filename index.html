@@ -189,6 +189,7 @@ details[open] summary .chev{transform:rotate(90deg)}
 .cover-card{border-color:color-mix(in srgb,var(--yellow) 40%,var(--border));background:color-mix(in srgb,var(--yellow) 5%,var(--surface))}
 .cover-card .eyebrow{color:var(--yellow)}
 .cover-note{display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--yellow) 10%,transparent);color:var(--text-2);font-size:.8rem;line-height:1.45;margin:14px 0}
+.subject-module{border:1px solid var(--border);border-radius:12px;padding:12px;background:var(--surface-2);margin-top:10px}.subject-module-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}.subject-module-head strong{flex:1}.subject-module .dz{min-height:54px;padding:8px;background:var(--surface)}.subject-module .dz .hint{padding:14px 0}.subject-pip{display:inline-flex;align-items:center;gap:7px;font-size:.76rem;font-weight:650;padding:5px 9px;border-radius:99px;background:var(--surface-2);white-space:nowrap}.subject-pip i{width:8px;height:8px;border-radius:50%;background:var(--subject-color,var(--primary))}.week-hours{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0 2px}.week-hours .subject-pip{padding:6px 10px}.subject-progress{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:10px}.subject-progress-item{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--surface)}.subject-progress-item .progress{margin-top:7px}
 
 /* ---------- builder ---------- */
 .stepper{display:flex;list-style:none;margin:0 0 20px;padding:0;gap:0}
@@ -416,10 +417,10 @@ const SUBJECT_TO_ASSIGNMENT = {
 };
 function defaultState(){return{
   profile:{joined:Date.now(),maxFocus:0,dailyStats:{}},
-  blocks:[],using:[],template:{0:[],1:[],2:[],3:[],4:[],5:[],6:[]},
+  blocks:[],subjects:[],using:[],template:{0:[],1:[],2:[],3:[],4:[],5:[],6:[]},
   draft:{goal:'',lastNum:2,lastUnit:'weeks',start:todayKey()},
   manual:{goal:'',start:todayKey(),n:7,rows:[]},
-  plan:null,coverPlan:null,cover:{goal:'',start:todayKey(),n:7,rows:[]},
+  plan:null,coverPlan:null,cover:{goal:'',start:todayKey(),n:7,rows:[],blockRows:[],selectedDay:0},
   archived:[],loose:{},todos:[],assignments:null,timer:null,theme:'light',newColor:COLORS[0],
   reminder:'只在晚上看视频'
 };}
@@ -428,7 +429,12 @@ let S; try{S=JSON.parse(localStorage.getItem(KEY))}catch{}
 // so older data without the cover-plan fields still gets usable defaults.
 function adoptState(o){
   S=Object.assign(defaultState(),o||{});
-  S.cover=Object.assign({goal:'',start:todayKey(),n:7,rows:[]},S.cover||{});
+  S.subjects=Array.isArray(S.subjects)?S.subjects:[];
+  S.blocks=Array.isArray(S.blocks)?S.blocks:[];
+  S.cover=Object.assign({goal:'',start:todayKey(),n:7,rows:[],blockRows:[],selectedDay:0},S.cover||{});
+  S.cover.blockRows=Array.isArray(S.cover.blockRows)?S.cover.blockRows:[];
+  S.cover.blockRows=Array.from({length:Math.max(1,+S.cover.n||7)},(_,i)=>Array.isArray(S.cover.blockRows[i])?S.cover.blockRows[i]:[]);
+  S.blocks.forEach(b=>{if(b.subjectId&&!S.subjects.some(x=>x.id===b.subjectId))b.subjectId='';});
   if(!S.reminder)S.reminder='只在晚上看视频';
 }
 adoptState(S);
@@ -528,6 +534,12 @@ function* allTasks(){
 function findTask(id){ for(const t of allTasks()) if(t.id===id) return t; return null; }
 const tasksOn=k=>[...(isCovered(k)?coverTasksOn(k):(S.plan?.days.find(d=>d.date===k)?.tasks||[])),...(S.loose[k]||[])];
 const blockById=id=>S.blocks.find(b=>b.id===id);
+const subjectById=id=>S.subjects.find(x=>x.id===id);
+function ensureTaskBlock(t){let b=S.blocks.find(x=>x.id===t.blockId);if(b)return b; b=S.blocks.find(x=>x.title===t.title&&(+x.minutes||0)===(+t.minutes||0)&&(!t.subjectId||x.subjectId===t.subjectId));if(!b){b={id:uid(),title:t.title,minutes:+t.minutes||0,color:t.color||'#d97706',subjectId:t.subjectId||''};S.blocks.push(b);}t.blockId=b.id;return b;}
+function heatColor(minutes){const red=[220,38,38],green=[22,163,74],dark=[20,83,45];let a,b,t;if(minutes<=180){a=red;b=red;t=0;}else if(minutes<=360){a=red;b=green;t=(minutes-180)/180;}else if(minutes<=540){a=green;b=dark;t=(minutes-360)/180;}else{a=dark;b=dark;t=0;}const c=a.map((v,i)=>Math.round(v+(b[i]-v)*t));return `rgb(${c.join(',')})`;}
+const formatHours=m=>`${Math.floor(m/60)}h${m%60?` ${m%60}m`:''}`;
+function weekSubjectTotals(dayLists){const totals={};dayLists.forEach(items=>items.forEach(x=>{const b=x.b||blockById(x.blockId);if(!b||!b.subjectId)return;totals[b.subjectId]=(totals[b.subjectId]||0)+(+b.minutes||0);}));return totals;}
+function subjectProgressHTML(p){const groups={};(p?.days||[]).forEach(d=>(d.tasks||[]).forEach(t=>{const id=t.subjectId||(blockById(t.blockId)||{}).subjectId;if(!id||!subjectById(id))return;const g=groups[id]||(groups[id]={total:0,done:0});g.total++;if(isDone(t))g.done++;}));const ids=Object.keys(groups);if(!ids.length)return '';return `<div class="subject-progress">${ids.map(id=>{const g=groups[id],pct=Math.round(g.done/g.total*100),sub=subjectById(id);return `<div class="subject-progress-item"><div class="row between"><span class="subject-pip" style="--subject-color:${esc(sub.color||'var(--primary)')}"><i></i>${esc(sub.name)}</span><b class="small">${g.done}/${g.total} · ${pct}%</b></div><div class="progress"><i style="width:${pct}%;background:${esc(sub.color||'var(--primary)')}"></i></div></div>`;}).join('')}</div>`;}
 function ensureAssignments(){
   const t=todayKey();
   const dayOfWeek = wdMon(t);
@@ -719,12 +731,12 @@ function renderPlan(){
       <h2 style="margin:4px 0 2px">${esc(cp.goal)}</h2>
       <div class="small muted">${fmtDate(cp.start)} – ${fmtDate(cp.end)} · ${cp.days.length} day${cp.days.length===1?'':'s'} · ${cpr.done}/${cpr.total} tasks (${cpr.pct}%)</div></div>
       <button class="btn sm danger" data-action="cover-remove">${icon('undo',14)} Remove cover</button></div>
-      <div class="progress" style="margin-top:12px"><i style="width:${cpr.pct}%;background:var(--yellow)"></i></div>
+      <div class="progress" style="margin-top:12px"><i style="width:${cpr.pct}%;background:var(--yellow)"></i></div>${subjectProgressHTML(cp)}
       <p class="xs muted" style="margin-top:10px">Inside this date range the cover plan replaces the original plan's tasks. The original tasks are only hidden — remove the cover plan (or let its days pass) and they are visible again with their progress intact.</p></div>`;
   }
   if(p){
     const pr=planProgress(p);
-    html+=`<div class="card goal-card"><div class="eyebrow">Goal</div><div class="goal">${esc(p.goal)}</div><div class="range">${pr.done} of ${pr.total} tasks finished · ${pr.pct}% · <span data-live="plan-time">${fmtDurShort(planSeconds(p))}</span> studied</div><div class="progress"><i style="width:${pr.pct}%"></i></div></div>`;
+    html+=`<div class="card goal-card"><div class="eyebrow">Goal</div><div class="goal">${esc(p.goal)}</div><div class="range">${pr.done} of ${pr.total} tasks finished · ${pr.pct}% · <span data-live="plan-time">${fmtDurShort(planSeconds(p))}</span> studied</div><div class="progress"><i style="width:${pr.pct}%"></i></div>${subjectProgressHTML(p)}</div>`;
   }
   const days=unionPlanDays(p,cp),tablePlan={start:days[0].date,end:days[days.length-1].date,days};
   html+=`<div class="card"><div class="card-head">${legend}<span class="small muted">${icon('info',13)} Click a task to mark it</span></div>${renderTable(tablePlan,false,true,true)}
@@ -755,8 +767,11 @@ function renderCreate(){
     if(st===1){
       html+=`<div class="grid2"><div class="card"><div class="card-head"><div><h3>Block area</h3><p class="sub" style="margin-top:2px">One task = one block. Blocks stay here for reuse.</p></div></div>
         <form id="blockForm" class="row" style="gap:8px"><input class="input" name="title" placeholder="Task name, e.g. Read 20 pages" required style="flex:1;min-width:160px"><input class="input" name="minutes" type="number" min="0" placeholder="min" style="width:80px"><div class="palette">${COLORS.map(c=>`<button type="button" data-action="pick-color" data-color="${c}" class="${S.newColor===c?'sel':''}" style="background:${c}"></button>`).join('')}</div><button class="btn btn-primary">${icon('plus',15)} Block</button></form>
-        <div class="block-grid mt">${S.blocks.map(b=>blockHTML(b,'block',`<button class="x" data-action="del-block" data-id="${b.id}" title="Delete block">${icon('x',12)}</button>`)).join('')||'<p class="small muted">No blocks yet — add your first task above.</p>'}</div>
-        <p class="xs muted mt">Drag a block into the using area (it is copied), or simply click it.</p></div>
+        <form id="subjectForm" class="row mt-s" style="gap:8px"><input class="input" name="subject" placeholder="New subject, e.g. Mathematics" required style="flex:1;min-width:130px"><button class="btn">${icon('plus',14)} Add subject</button></form>
+        <div class="dz mt" data-zone="block-pool"><div class="eyebrow">Unassigned blocks · drag into a subject</div><div class="block-grid">${S.blocks.filter(b=>!b.subjectId).map(b=>blockHTML(b,'block',`<button class="x" data-action="del-block" data-id="${b.id}" title="Delete block">${icon('x',12)}</button>`)).join('')||'<p class="small muted">No unassigned blocks. Add one above or move a block back here.</p>'}</div></div>
+        ${S.subjects.map(sub=>`<div class="subject-module"><div class="subject-module-head"><i class="bdot" style="background:${esc(sub.color||'#4f46e5')}"></i><strong>${esc(sub.name)}</strong><span class="pill">${S.blocks.filter(b=>b.subjectId===sub.id).length} blocks</span><button class="btn-icon sm" data-action="del-subject" data-id="${sub.id}" title="Delete subject">${icon('trash',13)}</button></div><div class="dz" data-zone="subject" data-subject="${sub.id}">${S.blocks.filter(b=>b.subjectId===sub.id).map(b=>blockHTML(b,'block',`<button class="x" data-action="del-block" data-id="${b.id}" title="Delete block">${icon('x',12)}</button>`)).join('')||'<div class="hint">Drag task blocks here</div>'}</div></div>`).join('')}
+        ${S.blocks.length?'':'<p class="small muted mt">Drag blocks into a subject module to categorize them. Click or drag categorized blocks into the using area.</p>'}
+        <p class="xs muted mt">Click a block or drag it into the using area; blocks can be reused across days.</p></div>
         <div class="card"><div class="card-head"><div><h3>Using area</h3><p class="sub" style="margin-top:2px">Blocks selected for this plan.</p></div><span class="pill">${S.using.length}</span></div>
         <div class="dz" data-zone="using"><div class="block-grid" style="min-height:0">${S.using.map(id=>blockById(id)).filter(Boolean).map(b=>blockHTML(b,'using',`<button class="x" data-action="rm-using" data-id="${b.id}">${icon('x',12)}</button>`)).join('')}</div>${S.using.length?'':'<div class="hint">Drop blocks here</div>'}</div>
         <div class="foot"><span class="small muted">Step 1 of 3</span><button class="btn btn-primary" data-action="step" data-step="2" ${S.using.length?'':'disabled'}>Next: weekly plan ${icon('arrow-right',15)}</button></div></div></div>`;
@@ -766,6 +781,7 @@ function renderCreate(){
         <div class="field"><label class="f">Start date</label><input class="input" type="date" data-draft="start" value="${d.start}"></div></div></div>
         <div class="card"><div class="card-head"><div><h3>Weekly round</h3><p class="sub" style="margin-top:2px">Drag blocks into each day (they are copied, so one block can be used on several days). You can also click a block to pick a day, or drag a placed block to another day.</p></div><div class="row" style="gap:6px"><button class="btn-icon sm bordered" data-action="week-scroll" data-dir="-1" title="Scroll left">${icon('arrow-left',14)}</button><button class="btn-icon sm bordered" data-action="week-scroll" data-dir="1" title="Scroll right">${icon('arrow-right',14)}</button><button class="btn sm btn-ghost" data-action="clear-week">Clear week</button></div></div>
         <div class="block-grid" style="padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2)">${S.using.map(id=>blockById(id)).filter(Boolean).map(b=>blockHTML(b,'using','','data-action="pick-day-for-block"')).join('')||'<span class="small muted">Using area is empty.</span>'}</div>
+        ${(()=>{const dayItems=DAYS_LONG.map((_,i)=>(S.template[i]||[]).map(e=>({b:blockById(e.blockId)})).filter(x=>x.b));const totals=weekSubjectTotals(dayItems);return `<div class="week-hours"><b class="small" style="align-self:center;margin-right:3px">Weekly subject hours</b>${S.subjects.map(sub=>{const m=totals[sub.id]||0,col=heatColor(m);return `<span class="subject-pip" style="--subject-color:${sub.color||col};background:${col};color:#fff" title="${esc(sub.name)} · ${formatHours(m)}">${esc(sub.name)} · ${formatHours(m)}</span>`;}).join('')||'<span class="small muted">Create subject modules and assign blocks to see weekly study hours.</span>'}<span class="xs muted" style="align-self:center">≤3h red · 6h green · 9h deep green</span></div>`;})()}
         <div class="week">${DAYS_LONG.map((name,i)=>{const items=(S.template[i]||[]).map(e=>({e,b:blockById(e.blockId)})).filter(x=>x.b);return `<div class="daycol"><h4>${name.slice(0,3)}<button class="btn-icon sm" data-action="pick-for-day" data-day="${i}" title="Add block">${icon('plus',14)}</button></h4><div class="dz" data-zone="day" data-day="${i}">${items.map(({e,b})=>blockHTML(b,'day',`<button class="x" data-action="rm-day" data-day="${i}" data-k="${e.k}">${icon('x',11)}</button>`,`data-day="${i}"`)).join('')||'<div class="hint">Drop here</div>'}</div></div>`;}).join('')}</div>
         <div class="foot"><button class="btn" data-action="step" data-step="1">${icon('arrow-left',15)} Back</button><button class="btn btn-primary" data-action="step" data-step="3">Next: generate ${icon('arrow-right',15)}</button></div></div>`;
     } else {
@@ -787,7 +803,7 @@ function renderCreate(){
 }
 function generateFromTemplate(){
   const d=S.draft,total=Math.max(1,(d.lastUnit==='weeks'?7:1)*(+d.lastNum||1)),days=[];
-  for(let i=0;i<total;i++){const k=addDays(d.start,i);const tasks=(S.template[wdMon(k)]||[]).map(e=>{const b=blockById(e.blockId);return b&&newTask(b.title,b.minutes,k,b.color);}).filter(Boolean);days.push({date:k,tasks});}
+  for(let i=0;i<total;i++){const k=addDays(d.start,i);const tasks=(S.template[wdMon(k)]||[]).map(e=>{const b=blockById(e.blockId);return b&&Object.assign(newTask(b.title,b.minutes,k,b.color),{subjectId:b.subjectId||'',blockId:b.id});}).filter(Boolean);days.push({date:k,tasks});}
   return{id:uid(),goal:d.goal.trim(),start:d.start,end:addDays(d.start,total-1),days,createdAt:Date.now(),mode:'code'};
 }
 function parseTaskLine(line){const m=line.split('|');const title=m[0].trim();const minutes=m[1]?parseInt(m[1]):0;return title?{title,minutes}:null;}
@@ -811,15 +827,16 @@ function coverDraft(){
     goal:c.goal||'',
     start:/^\d{4}-\d{2}-\d{2}$/.test(c.start||'')?c.start:todayKey(),
     n:Math.min(COVER_MAX_DAYS,Math.max(1,+c.n||1)),
-    rows:Array.isArray(c.rows)?c.rows:[]
+    rows:Array.isArray(c.rows)?c.rows:[],
+    blockRows:Array.isArray(c.blockRows)?c.blockRows:[],
+    selectedDay:Math.max(0,Math.min((+c.selectedDay||0),Math.max(0,(+c.n||1)-1)))
   };
 }
 function openCover(){
-  // Prefill from the active cover plan so the button also works as "edit".
   if(S.coverPlan){
     const p=S.coverPlan;
-    S.cover={goal:p.goal,start:p.start,n:Math.min(COVER_MAX_DAYS,p.days.length),
-      rows:p.days.map(d=>d.tasks.map(t=>t.minutes?`${t.title} | ${t.minutes}`:t.title).join('\n'))};
+    S.cover={goal:p.goal,start:p.start,n:Math.min(COVER_MAX_DAYS,p.days.length),rows:[],selectedDay:0,
+      blockRows:p.days.map(d=>d.tasks.map(t=>ensureTaskBlock(t).id))};
     save();
   }
   renderCoverModal();
@@ -827,11 +844,19 @@ function openCover(){
 }
 function renderCoverModal(){
   const c=coverDraft(),n=c.n,start=c.start,end=addDays(start,n-1);
-  const grid=Array.from({length:n},(_,i)=>{const k=addDays(start,i);
-    return `<div class="mday"><label>${DAYS[wdMon(k)]} · ${fmtDate(k)}</label><textarea data-cover-row="${i}" placeholder="One task per line">${esc(c.rows[i]||'')}</textarea></div>`;}).join('');
+  const grid=Array.from({length:n},(_,i)=>{
+    const k=addDays(start,i),ids=c.blockRows[i]||[];
+    const blocks=ids.map(id=>blockById(id)).filter(Boolean);
+    return `<div class="mday ${c.selectedDay===i?'selected':''}" style="border-color:${c.selectedDay===i?'var(--primary)':'var(--border)'}">
+      <div class="row between" style="gap:6px"><button class="btn btn-ghost sm" data-action="cover-select-day" data-day="${i}" style="padding:2px 5px"><b>${DAYS[wdMon(k)]} · ${fmtDate(k)}</b>${c.selectedDay===i?' · Selected':''}</button><span class="pill">${blocks.length} blocks</span></div>
+      <div class="dz mt-s" data-zone="cover-day" data-day="${i}">${blocks.map(b=>blockHTML(b,'cover-day',`<button class="x" data-action="cover-rm-block" data-day="${i}" data-id="${b.id}" title="Remove from this day">${icon('x',11)}</button>`,`data-cover-day="${i}"`)).join('')||'<div class="hint">Drop blocks here</div>'}</div>
+      ${c.rows[i]?`<div class="xs muted mt-s">Legacy tasks (kept): ${esc(c.rows[i]).replace(/\n/g,' · ')}</div>`:''}
+    </div>`;
+  }).join('');
   const orig=S.plan?`Your original plan runs ${fmtDate(S.plan.start)} – ${fmtDate(S.plan.end)}.`:'There is no original plan yet, so this will simply be your plan for those days.';
+  const pool=S.blocks.length?S.blocks.map(b=>blockHTML(b,'cover-block','','data-action="cover-add-block"')).join(''):'<p class="small muted">No task blocks yet. Create blocks in Create plan first.</p>';
   openModal(`<div class="row between" style="align-items:flex-start"><div><h2>${S.coverPlan?'Edit':'Make a'} cover plan</h2>
-    <p class="sub" style="margin-top:4px">A temporary short-term plan (up to ${COVER_MAX_DAYS} days) that overrides the original plan for a chosen date range.</p></div>
+    <p class="sub" style="margin-top:4px">Build this temporary plan from your reusable task blocks (up to ${COVER_MAX_DAYS} days).</p></div>
     <button class="btn-icon" data-action="close-modal">${icon('x')}</button></div>
     <div class="row mt" style="gap:14px;align-items:flex-end">
       <div class="field" style="flex:3"><label class="f">Goal of the cover plan</label><input class="input" data-cover="goal" value="${esc(c.goal)}" placeholder="e.g. Exam week revision"></div>
@@ -839,9 +864,12 @@ function renderCoverModal(){
       <div class="field" style="max-width:120px"><label class="f">Days (max ${COVER_MAX_DAYS})</label><input class="input" type="number" min="1" max="${COVER_MAX_DAYS}" data-cover="n" value="${n}"></div>
     </div>
     <div class="cover-note">${icon('info',14)}<span><b>${fmtDate(start)} – ${fmtDate(end)}</b> · ${n} day${n===1?'':'s'}. The original plan's tasks inside this range are hidden, not deleted — they reappear when the cover plan is removed or its days are over. ${esc(orig)}</span></div>
-    <div class="row between" style="margin-bottom:8px;gap:10px"><h3>Tasks for each day</h3><button class="btn sm" data-action="cover-copy" ${S.plan?'':'disabled'} title="Start from the original plan's tasks">${icon('clipboard',14)} Copy original days</button></div>
-    <p class="xs muted" style="margin-bottom:6px">One task per line, optionally <code>Task | minutes</code>. Leave a day empty for a rest day.</p>
+    <div class="card-head" style="margin:8px 0 6px"><div><h3>Reusable task blocks</h3><p class="xs muted">Drag a block into a date, or select a date then click a block.</p></div></div>
+    <div class="block-grid" style="max-height:150px;overflow:auto;padding:8px;border:1px solid var(--border);border-radius:10px">${pool}</div>
+    <div class="row between" style="margin:14px 0 8px;gap:10px"><h3>Blocks for each day</h3><button class="btn sm" data-action="cover-copy" ${S.plan?'':'disabled'} title="Start from the original plan's tasks">${icon('clipboard',14)} Copy original plan</button></div>
+    <p class="xs muted" style="margin-bottom:6px">Selected date: <b>${DAYS[wdMon(addDays(start,c.selectedDay))]} · ${fmtDate(addDays(start,c.selectedDay))}</b>. Empty days are rest days.</p>
     <div class="mgrid">${grid}</div>
+    <details class="mt"><summary>Legacy free-text tasks (existing saved tasks only)</summary><p class="xs muted mt-s">Older cover plans may contain plain-text tasks. They remain attached and are preserved on save.</p></details>
     <div class="foot"><span class="small muted">${S.coverPlan?'Saving replaces the current cover plan; its result is kept in Previous plans.':'Only the chosen range is overridden.'}</span>
     <div class="row" style="gap:8px"><button class="btn" data-action="close-modal">Cancel</button><button class="btn btn-primary" data-action="cover-create">${icon('check',15)} ${S.coverPlan?'Update':'Create'} cover plan</button></div></div>`,true);
 }
@@ -849,16 +877,19 @@ function buildCoverPlan(){
   const c=coverDraft(),start=c.start,n=c.n,days=[];
   for(let i=0;i<n;i++){
     const k=addDays(start,i);
-    const tasks=String(c.rows[i]||'').split('\n').map(parseTaskLine).filter(Boolean)
+    const tasks=(c.blockRows[i]||[]).map(id=>blockById(id)).filter(Boolean)
+      .map(b=>Object.assign(newTask(b.title,b.minutes,k,b.color),{subjectId:b.subjectId||'',blockId:b.id}));
+    // Migrate any old free-text draft tasks so nothing typed in a previous app version is lost.
+    const legacy=String(c.rows[i]||'').split('\n').map(parseTaskLine).filter(Boolean)
       .map(x=>newTask(x.title,x.minutes,k,'#d97706'));
-    days.push({date:k,tasks});
+    days.push({date:k,tasks:[...tasks,...legacy]});
   }
   return{id:uid(),goal:c.goal.trim(),start,end:addDays(start,n-1),days,createdAt:Date.now(),mode:'cover'};
 }
 function createCover(){
   const p=buildCoverPlan();
   if(!p.goal){toast('Please set a goal first');return;}
-  if(!p.days.some(d=>d.tasks.length)){toast('Add at least one task');return;}
+  if(!p.days.some(d=>d.tasks.length)){toast('Add at least one task block');return;}
   if(p.end<todayKey()){toast('That date range has already ended — pick a later start or more days');return;}
   if(S.coverPlan&&!confirm('Replace the current cover plan? Its result will be kept in Previous plans.'))return;
   if(S.coverPlan)archiveCover();
@@ -955,7 +986,7 @@ function openArchive(){
   ${S.archived.map(p=>`<div class="archive-item"><div style="min-width:0"><b>${esc(p.goal)}</b>${p.mode==='cover'?'<span class="tag">Cover</span>':''}<div class="xs muted">${fmtDate(p.start)} – ${fmtDate(p.end)} · ${p.days.length} days${p.result?` · ${p.result.done}/${p.result.total} tasks (${p.result.pct}%)`:''}</div></div><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn sm" data-action="view-archived" data-id="${p.id}">${icon('eye',14)} View</button><button class="btn-icon sm" data-action="del-archived" data-id="${p.id}">${icon('trash',14)}</button></div></div>`).join('')||emptyState('archive','No finished plan tables yet','Plans are stored here automatically when they end.')}`);
 }
 function viewArchived(id){const p=S.archived.find(x=>x.id===id);if(!p)return;const pr=planProgress(p);
-  openModal(`<div class="row between"><button class="btn sm btn-ghost" data-action="open-archive">${icon('arrow-left',14)} Back</button><button class="btn-icon" data-action="close-modal">${icon('x')}</button></div><div class="goal-card" style="padding:12px 0 18px"><div class="eyebrow">Goal</div><div class="goal">${esc(p.goal)}</div><div class="range">${fmtDate(p.start)} – ${fmtDate(p.end)} · ${pr.done}/${pr.total} tasks (${pr.pct}%) · ${fmtDurShort(planSeconds(p))} studied</div><div class="progress"><i style="width:${pr.pct}%"></i></div></div><div style="margin-bottom:10px">${legend}</div>${renderTable(p,true)}`,true);}
+  openModal(`<div class="row between"><button class="btn sm btn-ghost" data-action="open-archive">${icon('arrow-left',14)} Back</button><button class="btn-icon" data-action="close-modal">${icon('x')}</button></div><div class="goal-card" style="padding:12px 0 18px"><div class="eyebrow">Goal</div><div class="goal">${esc(p.goal)}</div><div class="range">${fmtDate(p.start)} – ${fmtDate(p.end)} · ${pr.done}/${pr.total} tasks (${pr.pct}%) · ${fmtDurShort(planSeconds(p))} studied</div><div class="progress"><i style="width:${pr.pct}%"></i></div>${subjectProgressHTML(p)}</div><div style="margin-bottom:10px">${legend}</div>${renderTable(p,true)}`,true);}
 
 /* ================= MODAL / PANEL / TOAST ================= */
 function openModal(html,wide){$('#modalBox').innerHTML=html;$('#modalBox').classList.toggle('wide',!!wide);$('#modal').classList.add('on');$('#overlay').classList.add('on');}
@@ -1015,7 +1046,7 @@ const DRAG={src:null,active:false,ghost:null,zone:null,pid:null,x:0,y:0,sx:0,sy:
 let suppressClick=false,clickGuardToken=0;
 document.addEventListener('dragstart',e=>e.preventDefault());
 document.addEventListener('click',e=>{if(suppressClick){e.stopPropagation();e.preventDefault();suppressClick=false;}},true);
-function canDrop(zone,type){return zone==='today'?type==='todo':(zone==='using'||zone==='day')&&type!=='todo';}
+function canDrop(zone,type){return zone==='today'?type==='todo':(['using','day','subject','block-pool','cover-day'].includes(zone)&&type!=='todo');}
 
 // Any leftover drag state (ghost node, body class, click suppression) would make
 // the whole page feel dead, so always wipe it before a new interaction starts.
@@ -1103,10 +1134,15 @@ function handleDrop(z,{type,id,day}){
   const zone=z.dataset.zone;
   if(zone==='using')addToUsing(id);
   else if(zone==='day'){const target=+z.dataset.day;if(type==='day'&&+day===target){toast('Already on this day');return;}addToDay(target,id);}
+  else if(zone==='subject'){const b=blockById(id);if(b){b.subjectId=z.dataset.subject;save();renderCreate();}}
+  else if(zone==='block-pool'){const b=blockById(id);if(b){b.subjectId='';save();renderCreate();}}
+  else if(zone==='cover-day'){addCoverBlock(+z.dataset.day,id);}
   else if(zone==='today'&&type==='todo')todoToToday(id);
 }
 function addToUsing(id){if(!blockById(id))return;if(S.using.includes(id)){toast('Already in the using area');return;}S.using.push(id);save();renderAll();}
 function addToDay(day,blockId){if(!blockById(blockId))return;S.template[day].push({k:uid(),blockId});save();renderAll();toast(`Added to ${DAYS_LONG[day]}`);}
+function addCoverBlock(day,blockId){if(!blockById(blockId))return;const rows=S.cover.blockRows||(S.cover.blockRows=[]);while(rows.length<=day)rows.push([]);if(rows[day].includes(blockId)){toast('Already on this day');return;}rows[day].push(blockId);S.cover.selectedDay=day;save();renderCoverModal();}
+function addSubject(name){name=String(name||'').trim();if(!name)return;if(S.subjects.some(x=>x.name.toLocaleLowerCase()===name.toLocaleLowerCase())){toast('That subject already exists');return;}S.subjects.push({id:uid(),name,color:COLORS[(S.subjects.length+1)%COLORS.length]});save();renderCreate();toast(`Subject “${name}” created`);}
 function todoToToday(id){const td=S.todos.find(t=>t.id===id);if(!td||td.done)return;const k=todayKey();(S.loose[k]||(S.loose[k]=[])).push(newTask(td.title,0,k,'#d97706',true));td.done=true;save();renderAll();toast('Added to today');}
 
 /* ================= EVENTS ================= */
@@ -1119,7 +1155,11 @@ document.addEventListener('click',e=>{
     case 'mode':UI.mode=el.dataset.mode;renderCreate();break;
     case 'step':{const s=+el.dataset.step;if(s===3){if(!S.draft.goal.trim()){toast('Please write a goal');return;}if(!Object.values(S.template).some(a=>a.length)){toast('Drag at least one block into a day');return;}}UI.step=s;renderCreate();break;}
     case 'pick-color':S.newColor=el.dataset.color;save();$$('.palette button').forEach(b=>b.classList.toggle('sel',b===el));break;
-    case 'del-block':S.blocks=S.blocks.filter(b=>b.id!==id);S.using=S.using.filter(x=>x!==id);for(const k in S.template)S.template[k]=S.template[k].filter(x=>x.blockId!==id);save();renderCreate();break;
+    case 'del-block':S.blocks=S.blocks.filter(b=>b.id!==id);S.using=S.using.filter(x=>x!==id);for(const k in S.template)S.template[k]=S.template[k].filter(x=>x.blockId!==id);if(S.cover?.blockRows)S.cover.blockRows=S.cover.blockRows.map(a=>a.filter(x=>x!==id));save();renderCreate();break;
+    case 'del-subject':S.blocks.forEach(b=>{if(b.subjectId===id)b.subjectId='';});S.subjects=S.subjects.filter(x=>x.id!==id);save();renderCreate();break;
+    case 'cover-select-day':S.cover.selectedDay=+el.dataset.day;save();renderCoverModal();break;
+    case 'cover-add-block':addCoverBlock(+S.cover.selectedDay||0,id);break;
+    case 'cover-rm-block':{const day=+el.dataset.day;S.cover.blockRows[day]=(S.cover.blockRows[day]||[]).filter(x=>x!==id);save();renderCoverModal();break;}
     case 'rm-using':S.using=S.using.filter(x=>x!==id);save();renderCreate();break;
     case 'rm-day':S.template[el.dataset.day]=S.template[el.dataset.day].filter(x=>x.k!==el.dataset.k);save();renderCreate();break;
     case 'clear-week':for(const k in S.template)S.template[k]=[];save();renderCreate();break;
@@ -1140,7 +1180,7 @@ document.addEventListener('click',e=>{
     case 'delete-plan':if(confirm('Delete this plan table permanently? It will not be stored.')){S.plan=null;save();renderAll();}break;
     case 'cover-open':openCover();break;
     case 'cover-create':createCover();break;
-    case 'cover-copy':{const c=coverDraft();const rows=Array.from({length:c.n},(_,i)=>{const k=addDays(c.start,i);const d=S.plan?.days.find(x=>x.date===k);return d?d.tasks.map(t=>t.minutes?`${t.title} | ${t.minutes}`:t.title).join('\n'):'';});S.cover={goal:S.cover.goal||'',start:c.start,n:c.n,rows};save();renderCoverModal();toast('Copied the original tasks — edit them below');break;}
+    case 'cover-copy':{const c=coverDraft();const blockRows=Array.from({length:c.n},(_,i)=>{const k=addDays(c.start,i);const d=S.plan?.days.find(x=>x.date===k);return d?d.tasks.map(t=>ensureTaskBlock(t).id):[];});S.cover={...S.cover,goal:S.cover.goal||'',start:c.start,n:c.n,rows:[],blockRows,selectedDay:c.selectedDay};save();renderCoverModal();toast('Copied the original tasks as reusable blocks');break;}
     case 'cover-remove':if(confirm('Remove the cover plan? Your original plan will be visible again for those dates.')){archiveCover();rollover();save();renderAll();toast('Cover plan removed — original plan restored');}break;
     case 'todo-today':todoToToday(id);break;
     case 'todo-done':{const t=S.todos.find(x=>x.id===id);if(t)t.done=true;save();renderTodo();break;}
@@ -1162,7 +1202,8 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('submit',e=>{
   e.preventDefault();const f=e.target,fd=new FormData(f);
-  if(f.id==='blockForm'){S.blocks.push({id:uid(),title:fd.get('title').trim(),minutes:+fd.get('minutes')||0,color:S.newColor});save();renderCreate();toast('Block created');}
+  if(f.id==='blockForm'){S.blocks.push({id:uid(),title:fd.get('title').trim(),minutes:+fd.get('minutes')||0,color:S.newColor,subjectId:''});save();renderCreate();toast('Block created');}
+  else if(f.id==='subjectForm')addSubject(fd.get('subject'));
   else if(f.id==='extraForm'){const k=todayKey();(S.loose[k]||(S.loose[k]=[])).push(newTask(fd.get('title').trim(),fd.get('minutes'),k,'#7c3aed',true));save();renderToday();toast('Extra task added for today');}
   else if(f.id==='todoForm'){S.todos.push({id:uid(),title:fd.get('title').trim(),done:false,createdAt:Date.now()});save();renderTodo();}
 });
@@ -1182,7 +1223,7 @@ document.addEventListener('change',e=>{
   if(el.dataset.cover==='n'){
     const n=Math.min(COVER_MAX_DAYS,Math.max(1,+el.value||1));
     if(+el.value>COVER_MAX_DAYS)toast(`Cover plans are limited to ${COVER_MAX_DAYS} days`);
-    S.cover.n=n;save();renderCoverModal();
+    S.cover.n=n;S.cover.blockRows=Array.from({length:n},(_,i)=>S.cover.blockRows?.[i]||[]);S.cover.rows=Array.from({length:n},(_,i)=>S.cover.rows?.[i]||'');S.cover.selectedDay=Math.min(+S.cover.selectedDay||0,n-1);save();renderCoverModal();
   } else if(el.dataset.cover==='start'){
     S.cover.start=el.value;save();renderCoverModal();
   }
