@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>鹈鹕骑行俱乐部</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    min-height: 100vh; overflow: hidden; display: grid; place-items: center;
+    background: #d9f1ed; color: #123f43;
+    font-family: ui-rounded, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  }
+  .poster {
+    position: relative; width: min(100vw, 1200px); height: min(100vh, 820px); min-height: 560px;
+    overflow: hidden; isolation: isolate;
+    background: linear-gradient(180deg, #a9e1d8 0%, #d6f1df 63%, #f5d48e 63%, #f6d995 100%);
+  }
+  .sun { position:absolute; width:145px; height:145px; border-radius:50%; background:#ffd36a; top:96px; right:16%; box-shadow:0 0 0 22px #ffd36a22; }
+  .hill { position:absolute; left:-10%; right:-10%; bottom:22%; height:31%; border-radius:50% 50% 0 0 / 45% 45% 0 0; background:#80c5a9; z-index:-1; }
+  .hill.back { left:35%; bottom:23%; height:26%; background:#a6d6a7; }
+  .cloud { position:absolute; width:105px; height:27px; border-radius:30px; background:#f7fff4; opacity:.8; top:23%; left:13%; }
+  .cloud:before,.cloud:after { content:""; position:absolute; bottom:6px; border-radius:50%; background:inherit; }
+  .cloud:before { width:42px;height:42px;left:18px; } .cloud:after { width:32px;height:32px;left:52px; }
+  .cloud.two { transform:scale(.7); left:auto; right:37%; top:17%; opacity:.6; }
+  header { position:absolute; z-index:5; top:45px; left:7%; }
+  .eyebrow { text-transform:uppercase; font-size:12px; font-weight:800; letter-spacing:.2em; color:#26716a; }
+  h1 { margin:10px 0 0; font-size:clamp(30px,4vw,48px); line-height:1.05; letter-spacing:.04em; }
+  .sub { margin-top:12px; font-size:14px; color:#33736d; letter-spacing:.08em; }
+  .badge { position:absolute; top:46px; right:7%; border:1px solid #39847b66; padding:11px 16px; border-radius:99px; color:#26716a; font-weight:750; font-size:12px; letter-spacing:.08em; }
+  .scene { position:absolute; left:50%; top:51%; width:min(92%, 850px); transform:translate(-50%,-43%); }
+  svg { width:100%; height:auto; overflow:visible; }
+  .wheel { fill:none; stroke:#164f50; stroke-width:9; }
+  .rim { fill:none; stroke:#e9f7e6; stroke-width:2.5; }
+  .spokes { stroke:#347c75; stroke-width:2; opacity:.72; }
+  .frame { fill:none; stroke:#e66c4d; stroke-width:10; stroke-linecap:round; stroke-linejoin:round; }
+  .frame-detail { fill:none; stroke:#f5a25e; stroke-width:3; stroke-linecap:round; }
+  .ground { stroke:#d5a858; stroke-width:5; stroke-linecap:round; }
+  .bird-body { fill:#fff7df; stroke:#174e4d; stroke-width:5; stroke-linejoin:round; }
+  .wing { fill:#d8e8d0; stroke:#174e4d; stroke-width:4; }
+  .beak { fill:#f18b48; stroke:#174e4d; stroke-width:4; stroke-linejoin:round; }
+  .leg { fill:none; stroke:#e17a3e; stroke-width:7; stroke-linecap:round; stroke-linejoin:round; }
+  .eye { fill:#143f43; }
+  .motion { animation:roll 7s ease-in-out infinite alternate; transform-origin:50% 78%; }
+  .pedal { animation:pedal 1.2s linear infinite; transform-origin:50% 50%; }
+  .feather { animation:bob 2s ease-in-out infinite; transform-origin:50% 80%; }
+  @keyframes roll { from { transform:translateX(-9px) rotate(-.5deg); } to { transform:translateX(9px) rotate(.5deg); } }
+  @keyframes pedal { to { transform:rotate(360deg); } }
+  @keyframes bob { 50% { transform:translateY(-4px) rotate(1deg); } }
+  footer { position:absolute; bottom:32px; left:7%; right:7%; display:flex; justify-content:space-between; align-items:center; color:#39756b; font-size:12px; letter-spacing:.1em; }
+  .route { display:flex; gap:9px; align-items:center; }
+  .route i { display:inline-block; width:7px;height:7px;border-radius:50%;background:#e8794d; }
+  @media(max-width:600px) {
+    .poster { min-height:500px; }
+    header { top:32px; left:7%; } .badge { top:35px; right:6%; font-size:10px; padding:8px 11px; }
+    .scene { width:112%; top:53%; }
+    footer { bottom:22px; font-size:10px; }
+    .sub { max-width:220px; font-size:12px; }
+  }
+</style>
+</head>
+<body>
+<main class="poster">
+  <div class="sun"></div><div class="cloud"></div><div class="cloud two"></div>
+  <div class="hill back"></div><div class="hill"></div>
+  <header>
+    <div class="eyebrow">THE WINGED WHEEL CLUB · 2025</div>
+    <h1>风从耳边<br>鱼从车筐</h1>
+    <div class="sub">今天也要，轻轻松松骑一程。</div>
+  </header>
+  <div class="badge">周末骑行 · 约 12 km</div>
+  <div class="scene">
+    <svg viewBox="0 0 820 490" role="img" aria-label="一只鹈鹕骑着红色自行车，沿着海边悠闲前进">
+      <!-- distant flowers and trail -->
+      <g fill="#f6f1d5" opacity=".9"><circle cx="94" cy="345" r="5"/><circle cx="115" cy="353" r="3"/><circle cx="719" cy="347" r="5"/><circle cx="696" cy="356" r="3"/></g>
+      <path class="ground" d="M68 376 H752"/>
+      <g class="motion">
+        <!-- bicycle wheels -->
+        <g><circle class="wheel" cx="250" cy="326" r="91"/><circle class="rim" cx="250" cy="326" r="83"/><circle cx="250" cy="326" r="8" fill="#164f50"/>
+          <g class="spokes"><path d="M250 235v182M159 326h182M186 262l128 128M314 262 186 390"/></g></g>
+        <g><circle class="wheel" cx="601" cy="326" r="91"/><circle class="rim" cx="601" cy="326" r="83"/><circle cx="601" cy="326" r="8" fill="#164f50"/>
+          <g class="spokes"><path d="M601 235v182M510 326h182M537 262l128 128M665 262 537 390"/></g></g>
+        <!-- frame -->
+        <path class="frame" d="M250 326 365 211 438 326 250 326 394 326 494 222 601 326M365 211h-42M494 222l-11-22h49"/>
+        <path class="frame-detail" d="M365 211 438 326M394 326 494 222"/>
+        <path d="M351 202h29" stroke="#174e4d" stroke-width="8" stroke-linecap="round"/>
+        <path d="M474 197h48" stroke="#174e4d" stroke-width="8" stroke-linecap="round"/>
+        <circle cx="394" cy="326" r="22" fill="none" stroke="#164f50" stroke-width="5"/>
+        <g class="pedal"><path d="M394 326v-27M394 326v27" stroke="#164f50" stroke-width="5"/><path d="M384 299h20M384 353h20" stroke="#164f50" stroke-width="5" stroke-linecap="round"/></g>
+        <!-- little front basket -->
+        <path d="M523 235h68l-8 38h-51z" fill="#d9a65f" stroke="#174e4d" stroke-width="4" stroke-linejoin="round"/>
+        <path d="M532 246h51M535 258h45M546 236v36M568 236v36" stroke="#f4d391" stroke-width="3"/>
+        <path d="M541 232q-8-18 9-22 7 18 0 22M558 232q1-22 20-20-1 18-17 22" fill="#76a96d" stroke="#174e4d" stroke-width="2"/>
+        <!-- pelican riding upright -->
+        <g class="feather">
+          <!-- tail -->
+          <path d="M318 145q-42-27-58-8 22 3 35 31" fill="#fff7df" stroke="#174e4d" stroke-width="4"/>
+          <!-- torso -->
+          <path class="bird-body" d="M315 154q25-45 77-34 50 11 54 64 3 42-42 58-47 15-85-13-31-24-4-75z"/>
+          <!-- wing -->
+          <path class="wing" d="M337 157q44-25 76 5 22 22-3 44-33 25-70 5-20-11-3-54z"/>
+          <path d="M352 175q24-13 44 4M350 191q25-9 42 4" fill="none" stroke="#aecbb8" stroke-width="4" stroke-linecap="round"/>
+          <!-- neck and head -->
+          <path d="M377 132q-22-48 1-84 16-24 44-11 21 10 13 34-7 19-31 17-12 20 8 47" fill="#fff7df" stroke="#174e4d" stroke-width="5" stroke-linejoin="round"/>
+          <path d="M421 48q38-12 80 12-29 24-71 16-19-3-21-13-1-9 12-15z" class="beak"/>
+          <path d="M425 72q32 8 66-3-19 33-48 30-19-2-18-27z" fill="#f2a05d" stroke="#174e4d" stroke-width="4" stroke-linejoin="round"/>
+          <circle class="eye" cx="416" cy="39" r="5"/><circle cx="418" cy="37" r="1.5" fill="white"/>
+          <!-- helmet -->
+          <path d="M387 29q7-31 34-30 27 1 34 27l-68 6z" fill="#e56f50" stroke="#174e4d" stroke-width="4"/>
+          <path d="M381 30h79" stroke="#174e4d" stroke-width="5" stroke-linecap="round"/>
+          <path d="M410 4l-4 20M430 3l5 21" stroke="#f6b072" stroke-width="3"/>
+          <!-- legs reaching pedals -->
+          <path class="leg" d="M356 224 382 266 394 299"/>
+          <path class="leg" d="M410 232 431 273 413 326"/>
+          <path d="M384 298l18 2M404 326l18 2" stroke="#174e4d" stroke-width="6" stroke-linecap="round"/>
+          <!-- scarf -->
+          <path d="M383 112q21 6 40-1l6 15q-25 13-48 0z" fill="#e56f50" stroke="#174e4d" stroke-width="3"/>
+          <path d="M391 124q-21 21-32 13 12 0 14 13" fill="none" stroke="#e56f50" stroke-width="9" stroke-linecap="round"/>
+        </g>
+        <!-- handlebar detail / bell -->
+        <circle cx="494" cy="218" r="6" fill="#ffd36a" stroke="#174e4d" stroke-width="3"/>
+      </g>
+      <!-- floating music / breeze marks -->
+      <path d="M178 125q-20 5-30 20M165 151q-12 4-18 13" fill="none" stroke="#fff7df" stroke-width="5" stroke-linecap="round"/>
+      <path d="M663 153q17-8 29-1M673 170q13-5 23-1" fill="none" stroke="#fff7df" stroke-width="5" stroke-linecap="round"/>
+      <g fill="#e66c4d"><path d="M708 204l4 9 10 1-8 6 2 10-8-6-8 6 3-10-8-6 10-1z"/><circle cx="135" cy="225" r="4"/></g>
+    </svg>
+  </div>
+  <footer><span>慢慢骑，也是一种抵达。</span><span class="route"><i></i> 海风路线　·　向日落出发</span></footer>
+</main>
+</body>
+</html>
